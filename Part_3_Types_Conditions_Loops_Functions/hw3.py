@@ -78,7 +78,7 @@ def make_up_statistics(date: tuple[int, int, int]) -> list[float | dict[str, flo
     capital = 0.0
     month_income = 0.0
     month_expenses = 0.0
-    categories = {}
+    categories: dict[str, float] = {}
 
     for inc_amount, (inc_day, inc_month, inc_year) in incomes:
         if (inc_year < year or (inc_year == year and inc_month < month) or (inc_month == month and inc_day <= day)):
@@ -188,15 +188,15 @@ def main() -> None:
             print(UNKNOWN_COMMAND_MSG)
             return
 
-        date = command_split[1]
-        date_extr = extract_date(date)
+        date_str = command_split[1]
+        date_extr = extract_date(date_str)
         if not valid_date(date_extr):
             print(INCORRECT_DATE_MSG)
             return
 
         stats = make_up_statistics(date_extr)
 
-        print_stats(stats, date)
+        print_stats(stats, date_str)
 
     else:
         print(UNKNOWN_COMMAND_MSG)
