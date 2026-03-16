@@ -15,6 +15,19 @@ INCOME_PARTS_EXPECTED = 3
 COST_PARTS_EXPECTED = 4
 STATS_PARTS_EXPECTED = 2
 
+JAN_DAYS = 31
+FEB_DAYS = 28
+MAR_DAYS = 31
+APR_DAYS = 30
+MAY_DAYS = 31
+JUN_DAYS = 30
+JUL_DAYS = 31
+AUG_DAYS = 31
+SEP_DAYS = 30
+OCT_DAYS = 31
+NOV_DAYS = 30
+DEC_DAYS = 31
+
 Income = tuple[float, tuple[int, int, int]]
 Expense = tuple[str, float, tuple[int, int, int]]
 DateTriple = tuple[int, int, int]
@@ -32,6 +45,27 @@ def is_leap_year(year: int) -> bool:
     return year % 400 == 0
 
 
+def get_month_days(month: int, year: int) -> int:
+    month_days_map = {
+        1: JAN_DAYS,
+        2: FEB_DAYS,
+        3: MAR_DAYS,
+        4: APR_DAYS,
+        5: MAY_DAYS,
+        6: JUN_DAYS,
+        7: JUL_DAYS,
+        8: AUG_DAYS,
+        9: SEP_DAYS,
+        10: OCT_DAYS,
+        11: NOV_DAYS,
+        12: DEC_DAYS,
+    }
+
+    if month == FEBRUARY and is_leap_year(year):
+        return LEAP_YEAR_DAY_LIMIT
+    return month_days_map[month]
+
+
 def valid_date(date: DateTriple | None) -> bool:
     if date is None:
         return False
@@ -41,14 +75,8 @@ def valid_date(date: DateTriple | None) -> bool:
     if month < MIN_MONTH or month > MAX_MONTH or day < MIN_MONTH or year < MIN_MONTH:
         return False
 
-    month_days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-
-    if month == FEBRUARY and is_leap_year(year):
-        return day <= LEAP_YEAR_DAY_LIMIT
-    if month == FEBRUARY:
-        return day <= NON_LEAP_YEAR_DAY_LIMIT
-
-    return day <= month_days[month - MIN_MONTH]
+    max_days = get_month_days(month, year)
+    return day <= max_days
 
 
 def extract_date(maybe_dt: str) -> DateTriple | None:
@@ -84,37 +112,60 @@ def valid_amount(amount: float | None) -> bool:
     return amount > 0
 
 
+def should_include_income(
+    inc_year: int, inc_month: int, inc_day: int,
+    target_year: int, target_month: int, target_day: int
+) -> bool:
+    if inc_year < target_year:
+        return True
+    if inc_year == target_year and inc_month < target_month:
+        return True
+    if inc_month == target_month and inc_day <= target_day:
+        return True
+    return False
+
+
+def should_include_expense(
+    exp_year: int, exp_month: int, exp_day: int,
+    target_year: int, target_month: int, target_day: int
+) -> bool:
+    if exp_year < target_year:
+        return True
+    if exp_year == target_year and exp_month < target_month:
+        return True
+    if exp_month == target_month and exp_day <= target_day:
+        return True
+    return False
+
+
 def process_incomes(target_date: DateTriple) -> tuple[float, float]:
-    day, month, year = target_date
+    target_day, target_month, target_year = target_date
     capital = 0.0
     month_income = 0.0
 
     for inc_amount, (inc_day, inc_month, inc_year) in incomes:
-        if (inc_year < year or
-                (inc_year == year and inc_month < month) or
-                (inc_month == month and inc_day <= day)):
+        if should_include_income(inc_year, inc_month, inc_day,
+                                  target_year, target_month, target_day):
             capital += inc_amount
 
-        if inc_month == month and inc_year == year:
+        if inc_month == target_month and inc_year == target_year:
             month_income += inc_amount
 
     return capital, month_income
 
 
 def process_expenses(target_date: DateTriple) -> tuple[float, float, dict[str, float]]:
-
-    day, month, year = target_date
+    target_day, target_month, target_year = target_date
     capital = 0.0
     month_expenses = 0.0
     categories: dict[str, float] = {}
 
     for exp_category, exp_amount, (exp_day, exp_month, exp_year) in expenses:
-        if (exp_year < year or
-                (exp_year == year and exp_month < month) or
-                (exp_month == month and exp_day <= day)):
+        if should_include_expense(exp_year, exp_month, exp_day,
+                                   target_year, target_month, target_day):
             capital -= exp_amount
 
-        if exp_month == month and exp_year == year:
+        if exp_month == target_month and exp_year == target_year:
             month_expenses += exp_amount
             categories[exp_category] = categories.get(exp_category, 0) + exp_amount
 
@@ -123,11 +174,10 @@ def process_expenses(target_date: DateTriple) -> tuple[float, float, dict[str, f
 
 def make_up_statistics(date: DateTriple) -> Stats:
     inc_capital, month_income = process_incomes(date)
-    exp_capital, month_expenses, categories = process_expenses(date)
+    exp_result = process_expenses(date)
+    total_capital = inc_capital - exp_result[0]
 
-    total_capital = inc_capital - exp_capital
-
-    return [total_capital, month_income, month_expenses, categories]
+    return [total_capital, month_income, exp_result[1], exp_result[2]]
 
 
 def print_breakdown(categories: dict[str, float]) -> None:
@@ -139,6 +189,12 @@ def print_breakdown(categories: dict[str, float]) -> None:
         print(f"{i}. {category}: {int(amount)}")
 
 
+def format_delta_message(delta: float) -> str:
+    if delta > 0:
+        return f"This month's profit: {delta:.2f} rubles"
+    return f"This month's loss: {-delta:.2f} rubles"
+
+
 def print_stats(stats: Stats, date: str) -> None:
     categories = stats[3]
 
@@ -146,18 +202,12 @@ def print_stats(stats: Stats, date: str) -> None:
     print(f"Total capital: {stats[0]:.2f} rubles")
 
     delta = stats[1] - stats[2]
-
-    if delta > 0:
-        profit_msg = f"This month's profit: {delta:.2f} rubles"
-        print(profit_msg)
-    else:
-        loss_msg = f"This month's loss: {-delta:.2f} rubles"
-        print(loss_msg)
+    print(format_delta_message(delta))
 
     print(f"Income: {stats[1]:.2f} rubles")
     print(f"Expenses: {stats[2]:.2f} rubles")
     print()
-    print("Breakdown (category: amount):")
+    print("Breakdown (category):")
 
     print_breakdown(categories)
 
