@@ -29,9 +29,7 @@ def is_leap_year(year: int) -> bool:
         return False
     if year % 100 != 0:
         return True
-    if year % 400 != 0:
-        return False
-    return True
+    return year % 400 == 0
 
 
 def valid_date(date: DateTriple | None) -> bool:
@@ -92,11 +90,7 @@ def process_incomes(target_date: DateTriple) -> tuple[float, float]:
     month_income = 0.0
 
     for inc_amount, (inc_day, inc_month, inc_year) in incomes:
-        if inc_year < year:
-            capital += inc_amount
-        elif inc_year == year and inc_month < month:
-            capital += inc_amount
-        elif inc_month == month and inc_day <= day:
+        if inc_year < year or inc_year == year and inc_month < month or inc_month == month and inc_day <= day:
             capital += inc_amount
 
         if inc_month == month and inc_year == year:
@@ -113,11 +107,7 @@ def process_expenses(target_date: DateTriple) -> tuple[float, float, dict[str, f
     categories: dict[str, float] = {}
 
     for exp_category, exp_amount, (exp_day, exp_month, exp_year) in expenses:
-        if exp_year < year:
-            capital -= exp_amount
-        elif exp_year == year and exp_month < month:
-            capital -= exp_amount
-        elif exp_month == month and exp_day <= day:
+        if exp_year < year or exp_year == year and exp_month < month or exp_month == month and exp_day <= day:
             capital -= exp_amount
 
         if exp_month == month and exp_year == year:
