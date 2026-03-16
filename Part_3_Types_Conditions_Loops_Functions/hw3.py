@@ -5,6 +5,17 @@ NONPOSITIVE_VALUE_MSG = "Value must be grater than zero!"
 INCORRECT_DATE_MSG = "Invalid date!"
 OP_SUCCESS_MSG = "Added"
 
+MIN_MONTH = 1
+MAX_MONTH = 12
+FEBRUARY = 2
+LEAP_YEAR_DAY_LIMIT = 29
+NON_LEAP_YEAR_DAY_LIMIT = 28
+DATE_PARTS_EXPECTED = 3
+INCOME_PARTS_EXPECTED = 3
+COST_PARTS_EXPECTED = 4
+STATS_PARTS_EXPECTED = 2
+valid_days_in_month = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
 incomes: list[tuple[float, tuple[int, int, int]]] = []
 expenses: list[tuple[str, float, tuple[int, int, int]]] = []
 
@@ -13,9 +24,9 @@ def is_leap_year(year: int) -> bool:
 
     if year % 4 != 0:
         return False
-    elif year % 100 != 0:
+    if year % 100 != 0:
         return True
-    elif year % 400 != 0:
+    if year % 400 != 0:
         return False
 
     return True
@@ -27,16 +38,13 @@ def valid_date(date: tuple[int, int, int] | None) -> bool:
 
     day, month, year = date
 
-    if month < 1 or month > 12 or day < 1 or year < 1:
+    if month < 1 or month > MAX_MONTH or day < 1 or year < 1:
         return False
 
-    valid_days_in_month = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-
-    if month == 2:
+    if month == FEBRUARY:
         if is_leap_year(year):
-            return day <= 29
-        else:
-            return day <= 28
+            return day <= LEAP_YEAR_DAY_LIMIT
+        return day <= NON_LEAP_YEAR_DAY_LIMIT
 
     return day <= valid_days_in_month[month - 1]
 
@@ -44,7 +52,7 @@ def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
 
     date = maybe_dt.split("-")
 
-    if len(date) != 3:
+    if len(date) != DATE_PARTS_EXPECTED:
         return None
 
     day, month, year = date
@@ -67,7 +75,7 @@ def parse_amount(amount: str) -> float | None:
 
     return float(amount)
 
-def valid_amount(amount: int | float | None) -> bool:
+def valid_amount(amount: float | None) -> bool:
     if amount is None:
         return False
     return amount > 0
@@ -103,19 +111,19 @@ def print_stats(stats: list[float | dict[str, float]], date: str) -> None:
 
     categories = stats[3]
 
-    print(f"Ваша статистика по состоянию на {date}:")
-    print(f"Суммарный капитал: {stats[0]:.2f} рублей")
+    print(f"Your statistics as of {date}:")
+    print(f"Total capital: {stats[0]:.2f} rubles")
 
     delta = stats[1] - stats[2]
 
     if delta > 0:
-        print(f"В этом месяце прибыль составила {delta:.2f} рублей")
+        print(f"This month's profit {delta:.2f} rubles")
     else:
-        print(f"В этом месяце убыток составил {-delta:.2f} рублей")
-    print(f"Доходы: {stats[1]:.2f} рублей")
-    print(f"Расходы: {stats[2]:.2f} рублей")
+        print(f"This month's loss {-delta:.2f} rubles")
+    print(f"Income: {stats[1]:.2f} rubles")
+    print(f"Expenses: {stats[2]:.2f} rubles")
     print()
-    print("Детализация (категория: сумма):")
+    print("Breakdown (category: amount):")
 
     if len(categories) > 0:
         for i, (category, amount) in enumerate(sorted(categories.items()), 1):
@@ -124,87 +132,81 @@ def print_stats(stats: list[float | dict[str, float]], date: str) -> None:
         print()
 
 
+def process_income(command_split: list[str]) -> None:
+    if len(command_split) != INCOME_PARTS_EXPECTED:
+        print(UNKNOWN_COMMAND_MSG)
+        return
 
+    amount_str, date_str = command_split[1:]
+    amount = parse_amount(amount_str)
+    date = extract_date(date_str)
 
-def income_handler(amount: float, income_date: str) -> str:
-    return f"{OP_SUCCESS_MSG} {amount=} {income_date=}"
+    if not valid_date(date):
+        print(INCORRECT_DATE_MSG)
+        return
 
+    if not valid_amount(amount):
+        print(UNKNOWN_COMMAND_MSG if amount is None else NONPOSITIVE_VALUE_MSG)
+        return
+
+    incomes.append((amount, date))
+    print(OP_SUCCESS_MSG)
+
+def process_cost(command_split: list[str]) -> None:
+    if len(command_split) != COST_PARTS_EXPECTED:
+        print(UNKNOWN_COMMAND_MSG)
+        return
+
+    category, amount_str, date_str = command_split[1:]
+
+    if not category or " " in category or "." in category or "," in category:
+        print(UNKNOWN_COMMAND_MSG)
+        return
+
+    amount = parse_amount(amount_str)
+    date = extract_date(date_str)
+
+    if not valid_amount(amount):
+        print(UNKNOWN_COMMAND_MSG if amount is None else NONPOSITIVE_VALUE_MSG)
+        return
+
+    if not valid_date(date):
+        print(INCORRECT_DATE_MSG)
+        return
+
+    expenses.append((category, amount, date))
+    print(OP_SUCCESS_MSG)
+
+def process_stats(command_split: list[str]) -> None:
+    if len(command_split) != STATS_PARTS_EXPECTED:
+        print(UNKNOWN_COMMAND_MSG)
+        return
+
+    date_str = command_split[1]
+    date_extr = extract_date(date_str)
+
+    if not valid_date(date_extr):
+        print(INCORRECT_DATE_MSG)
+        return
+
+    stats = make_up_statistics(date_extr)
+    print_stats(stats, date_str)
 
 def main() -> None:
-
     command = input()
     command_split = command.split(" ")
 
-    if command_split[0] == "income":
-        if len(command_split) != 3:
-            print(UNKNOWN_COMMAND_MSG)
-            return
+    command_handlers = {
+        "income": process_income,
+        "cost": process_cost,
+        "stats": process_stats
+    }
 
-        amount_str, date_str = command_split[1:]
-
-        amount = parse_amount(amount_str)
-        date = extract_date(date_str)
-
-        if not valid_date(date):
-            print(INCORRECT_DATE_MSG)
-            return
-
-        if not valid_amount(amount):
-            if amount is None:
-                print(UNKNOWN_COMMAND_MSG)
-            else:
-                print(NONPOSITIVE_VALUE_MSG)
-            return
-
-        incomes.append((amount, date))
-        print(OP_SUCCESS_MSG)
-
-    elif command_split[0] == "cost":
-        if len(command_split) != 4:
-            print(UNKNOWN_COMMAND_MSG)
-            return
-
-        category, amount_str, date_str = command_split[1:]
-
-        if not category or " " in category or "." in category or "," in category:
-            print(UNKNOWN_COMMAND_MSG)
-            return
-
-        amount = parse_amount(amount_str)
-        date = extract_date(date_str)
-
-        if not valid_amount(amount):
-            if amount is None:
-                print(UNKNOWN_COMMAND_MSG)
-            else:
-                print(NONPOSITIVE_VALUE_MSG)
-            return
-
-        if not valid_date(date):
-            print(INCORRECT_DATE_MSG)
-            return
-
-        expenses.append((category, amount, date))
-        print(OP_SUCCESS_MSG)
-
-    elif command_split[0] == "stats":
-        if len(command_split) != 2:
-            print(UNKNOWN_COMMAND_MSG)
-            return
-
-        date_str = command_split[1]
-        date_extr = extract_date(date_str)
-        if not valid_date(date_extr):
-            print(INCORRECT_DATE_MSG)
-            return
-
-        stats = make_up_statistics(date_extr)
-
-        print_stats(stats, date_str)
-
+    handler = command_handlers.get(command_split[0])
+    if handler:
+        handler(command_split)
     else:
         print(UNKNOWN_COMMAND_MSG)
-
 
 if __name__ == "__main__":
     main()
