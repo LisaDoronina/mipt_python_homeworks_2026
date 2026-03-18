@@ -127,7 +127,7 @@ def _monthly_expense_data(target_date: date) -> tuple[float, dict[str, float]]:
     for category, amount, exp_date in expenses:
         if exp_date.month == target_date.month and exp_date.year == target_date.year:
             month_total += amount
-            categories[category] = categories.get(category, 0.0) + amount
+            categories[category] = categories.get(category, float()) + amount
 
     return month_total, categories
 
