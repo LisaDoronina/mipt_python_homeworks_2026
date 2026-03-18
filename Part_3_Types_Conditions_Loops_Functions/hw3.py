@@ -3,7 +3,6 @@
 from datetime import date
 from typing import NamedTuple
 
-
 UNKNOWN_COMMAND_MSG = "Unknown command!"
 NONPOSITIVE_VALUE_MSG = "Value must be greater than zero!"
 INCORRECT_DATE_MSG = "Invalid date!"
@@ -162,10 +161,7 @@ def format_delta_message(delta: float) -> str:
 
 
 def print_stats(stats: Stats, date_str: str) -> None:
-    if isinstance(stats.categories, dict):
-        categories = dict(stats.categories)
-    else:
-        categories = {}
+    categories = dict(stats.categories)
 
     print(f"Your statistics as of {date_str}:")
     print(f"Total capital: {stats.total_capital:.2f} rubles")
