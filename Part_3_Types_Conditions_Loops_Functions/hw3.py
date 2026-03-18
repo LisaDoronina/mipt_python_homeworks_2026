@@ -17,7 +17,22 @@ INCOME_PARTS_EXPECTED = 3
 COST_PARTS_EXPECTED = 4
 STATS_PARTS_EXPECTED = 2
 
-ZERO = 0.0
+ZERO = 0
+
+MONTH_DAYS = {
+    1: 31,
+    2: 28,
+    3: 31,
+    4: 30,
+    5: 31,
+    6: 30,
+    7: 31,
+    8: 31,
+    9: 30,
+    10: 31,
+    11: 30,
+    12: 31,
+}
 
 
 class Stats(NamedTuple):
@@ -35,13 +50,20 @@ expenses: list[Expense] = []
 
 
 def is_leap_year(year: int) -> bool:
-    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+    if year % 4 != 0:
+        return False
+
+    if year % 100 != 0:
+        return True
+
+    return year % 400 == 0
 
 
 def get_month_days(month: int, year: int) -> int:
-    if month == FEBRUARY:
-        return 29 if is_leap_year(year) else 28
-    return [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]
+    if month == FEBRUARY and is_leap_year(year):
+        return 29
+
+    return MONTH_DAYS[month]
 
 
 def valid_date(date_obj: date | None) -> bool:
