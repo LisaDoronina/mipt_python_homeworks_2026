@@ -162,9 +162,6 @@ def format_delta_message(delta: float) -> str:
 
 
 def print_stats(stats: Stats, date_str: str) -> None:
-
-    categories: dict[str, float]
-
     if isinstance(stats.categories, dict):
         categories = dict(stats.categories)
     else:
