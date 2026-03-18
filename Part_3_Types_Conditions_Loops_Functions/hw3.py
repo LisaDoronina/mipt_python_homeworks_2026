@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-from datetime import date
 from typing import NamedTuple
+from datetime import date
 
 
 UNKNOWN_COMMAND_MSG = "Unknown command!"
