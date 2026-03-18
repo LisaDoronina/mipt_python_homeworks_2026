@@ -121,12 +121,10 @@ def should_include_income(inc_date: date, target_date: date) -> bool:
 
 
 def should_include_expense(exp_date: date, target_date: date) -> bool:
-    """Check if expense date should be included (<= target date)."""
     return exp_date <= target_date
 
 
 def _calculate_income_totals(target_date: date) -> tuple[float, float]:
-    """Calculate total capital and monthly income."""
     capital = 0
     month_income = 0
 
@@ -143,21 +141,27 @@ def _calculate_income_totals(target_date: date) -> tuple[float, float]:
 def _calculate_expense_totals(
         target_date: date,
 ) -> tuple[float, float, dict[str, float]]:
+
     capital = sum(
-        -exp_amount
-        for exp_category, exp_amount, exp_date in expenses
-        if should_include_expense(exp_date, target_date)
+        -amount
+        for _, amount, date in expenses
+        if should_include_expense(date, target_date)
     )
 
-    month_expenses = 0
-    categories: dict[str, float] = {}
+    monthly_expenses = [
+        (category, amount)
+        for category, amount, date in expenses
+        if date.month == target_date.month and date.year == target_date.year
+    ]
 
-    for exp_category, exp_amount, exp_date in expenses:
-        if exp_date.month == target_date.month and exp_date.year == target_date.year:
-            month_expenses += exp_amount
-            categories[exp_category] = categories.get(exp_category, 0) + exp_amount
+    month_total = sum(amount for _, amount in monthly_expenses)
 
-    return float(capital), float(month_expenses), categories
+    categories = {}
+    for category, amount in monthly_expenses:
+        categories[category] = categories.get(category, 0) + amount
+
+    return float(capital), float(month_total), categories
+
 
 def make_up_statistics(target_date: date) -> Stats:
     inc_capital, month_income = _calculate_income_totals(target_date)
@@ -165,6 +169,7 @@ def make_up_statistics(target_date: date) -> Stats:
     exp_capital, month_expenses, categories = _calculate_expense_totals(target_date)
 
     return [inc_capital - exp_capital, month_income, month_expenses, categories]
+
 
 def print_breakdown(categories: dict[str, float]) -> None:
     if not categories:
@@ -176,12 +181,10 @@ def print_breakdown(categories: dict[str, float]) -> None:
 
 
 def _format_profit_message(delta: float) -> str:
-    """Format profit message."""
     return f"This month's profit: {delta:.2f} rubles"
 
 
 def _format_loss_message(delta: float) -> str:
-    """Format loss message."""
     return f"This month's loss: {abs(delta):.2f} rubles"
 
 
