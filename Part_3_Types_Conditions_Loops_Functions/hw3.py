@@ -148,19 +148,15 @@ def _calculate_expense_totals(
         if should_include_expense(date, target_date)
     )
 
-    monthly_expenses = [
-        (category, amount)
-        for category, amount, date in expenses
-        if date.month == target_date.month and date.year == target_date.year
-    ]
-
-    month_total = sum(amount for _, amount in monthly_expenses)
-
+    month_total = 0.0
     categories = {}
-    for category, amount in monthly_expenses:
-        categories[category] = categories.get(category, 0) + amount
 
-    return float(capital), float(month_total), categories
+    for category, amount, date in expenses:
+        if date.month == target_date.month and date.year == target_date.year:
+            month_total += amount
+            categories[category] = categories.get(category, 0) + amount
+
+    return float(capital), month_total, categories
 
 
 def make_up_statistics(target_date: date) -> Stats:
@@ -189,7 +185,6 @@ def _format_loss_message(delta: float) -> str:
 
 
 def format_delta_message(delta: float) -> str:
-    """Format profit/loss message based on delta value."""
     if delta > 0:
         return _format_profit_message(delta)
     return _format_loss_message(delta)
