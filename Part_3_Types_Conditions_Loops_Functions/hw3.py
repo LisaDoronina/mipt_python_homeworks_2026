@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 from datetime import date
+from typing import cast
 
 UNKNOWN_COMMAND_MSG = "Unknown command!"
 NONPOSITIVE_VALUE_MSG = "Value must be greater than zero!"
 INCORRECT_DATE_MSG = "Invalid date!"
 OP_SUCCESS_MSG = "Added"
-MONTH_TOTAL_KEY = "total"
-MONTH_CATEGORIES_KEY = "categories"
 
 MIN_MONTH = 1
 MAX_MONTH = 12
@@ -123,10 +122,44 @@ def should_include_income(inc_date: date, target_date: date) -> bool:
 
 
 def should_include_expense(exp_date: date, target_date: date) -> bool:
+    """Check if expense date should be included (<= target date)."""
     return exp_date <= target_date
 
 
-def _calculate_income_totals(target_date: date) -> tuple[float, float]:
+def _capital_from_expenses(target_date: date) -> float:
+    """Calculate capital impact from expenses."""
+    total = 0
+    for _, amount, exp_date in expenses:
+        if should_include_expense(exp_date, target_date):
+            total -= amount
+    return float(total)
+
+
+def _monthly_expense_data(target_date: date) -> tuple[float, dict[str, float]]:
+    """Calculate monthly expense total and categories."""
+    month_total = 0
+    categories: dict[str, float] = {}
+
+    for category, amount, exp_date in expenses:
+        if exp_date.month == target_date.month and exp_date.year == target_date.year:
+            month_total += amount
+            current = categories.get(category, 0)
+            categories[category] = current + amount
+
+    return float(month_total), categories
+
+
+def _calculate_expense_totals(
+        target_date: date,
+) -> tuple[float, float, dict[str, float]]:
+    """Calculate expense totals and category breakdown."""
+    capital = _capital_from_expenses(target_date)
+    month_total, categories = _monthly_expense_data(target_date)
+    return capital, month_total, categories
+
+
+def _income_totals(target_date: date) -> tuple[float, float]:
+    """Calculate income totals."""
     capital = 0
     month_income = 0
 
@@ -140,34 +173,17 @@ def _calculate_income_totals(target_date: date) -> tuple[float, float]:
     return float(capital), float(month_income)
 
 
-def _calculate_expense_totals(
-        target_date: date,
-) -> tuple[float, float, dict[str, float]]:
-
-    capital = 0.0
-    month_total = 0.0
-    categories: dict[str, float] = {}
-
-    for category, amount, exp_date in expenses:
-        if should_include_expense(exp_date, target_date):
-            capital -= amount
-
-        if exp_date.month == target_date.month and exp_date.year == target_date.year:
-            month_total += amount
-            categories[category] = categories.get(category, 0.0) + amount
-
-    return capital, month_total, categories
-
-
 def make_up_statistics(target_date: date) -> Stats:
-    inc_capital, month_income = _calculate_income_totals(target_date)
-
+    """Calculate complete statistics for target date."""
+    inc_capital, month_income = _income_totals(target_date)
     exp_capital, month_expenses, categories = _calculate_expense_totals(target_date)
 
-    return [inc_capital - exp_capital, month_income, month_expenses, categories]
+    total_capital = inc_capital - exp_capital
+    return [total_capital, month_income, month_expenses, categories]
 
 
 def print_breakdown(categories: dict[str, float]) -> None:
+    """Print expense breakdown by category."""
     if not categories:
         print()
         return
@@ -177,30 +193,44 @@ def print_breakdown(categories: dict[str, float]) -> None:
 
 
 def _format_profit_message(delta: float) -> str:
+    """Format profit message."""
     return f"This month's profit: {delta:.2f} rubles"
 
 
 def _format_loss_message(delta: float) -> str:
+    """Format loss message."""
     return f"This month's loss: {abs(delta):.2f} rubles"
 
 
 def format_delta_message(delta: float) -> str:
+    """Format profit/loss message based on delta value."""
     if delta > 0:
         return _format_profit_message(delta)
     return _format_loss_message(delta)
 
 
 def print_stats(stats: Stats, date_str: str) -> None:
+    """Print statistics."""
+    # Cast to proper types for mypy
+    total_capital = float(stats[0])
+    month_income = float(stats[1])
+    month_expenses = float(stats[2])
     categories = stats[3]
 
-    print(f"Your statistics as of {date_str}:")
-    print(f"Total capital: {stats[0]:.2f} rubles")
+    # Ensure categories is a dict
+    if not isinstance(categories, dict):
+        categories = {}
+    else:
+        categories = dict(categories)
 
-    delta = stats[1] - stats[2]
+    print(f"Your statistics as of {date_str}:")
+    print(f"Total capital: {total_capital:.2f} rubles")
+
+    delta = month_income - month_expenses
     print(format_delta_message(delta))
 
-    print(f"Income: {stats[1]:.2f} rubles")
-    print(f"Expenses: {stats[2]:.2f} rubles")
+    print(f"Income: {month_income:.2f} rubles")
+    print(f"Expenses: {month_expenses:.2f} rubles")
     print()
     print("Breakdown (category):")
 
@@ -208,27 +238,29 @@ def print_stats(stats: Stats, date_str: str) -> None:
 
 
 def process_income(command_split: list[str]) -> None:
+    """Process income command."""
     if len(command_split) != INCOME_PARTS_EXPECTED:
         print(UNKNOWN_COMMAND_MSG)
         return
 
     amount_str, date_str = command_split[1:]
-    amount = parse_amount(amount_str)
-    date_obj = extract_date(date_str)
+    parsed_amount = parse_amount(amount_str)
+    parsed_date = extract_date(date_str)
 
-    if not valid_date(date_obj):
+    if parsed_date is None or not valid_date(parsed_date):
         print(INCORRECT_DATE_MSG)
         return
 
-    if not valid_amount(amount):
-        print(UNKNOWN_COMMAND_MSG if amount is None else NONPOSITIVE_VALUE_MSG)
+    if parsed_amount is None or not valid_amount(parsed_amount):
+        print(UNKNOWN_COMMAND_MSG if parsed_amount is None else NONPOSITIVE_VALUE_MSG)
         return
 
-    incomes.append((amount, date_obj))
+    incomes.append((parsed_amount, parsed_date))
     print(OP_SUCCESS_MSG)
 
 
 def process_cost(command_split: list[str]) -> None:
+    """Process cost command."""
     if len(command_split) != COST_PARTS_EXPECTED:
         print(UNKNOWN_COMMAND_MSG)
         return
@@ -239,38 +271,40 @@ def process_cost(command_split: list[str]) -> None:
         print(UNKNOWN_COMMAND_MSG)
         return
 
-    amount = parse_amount(amount_str)
-    date_obj = extract_date(date_str)
+    parsed_amount = parse_amount(amount_str)
+    parsed_date = extract_date(date_str)
 
-    if not valid_amount(amount):
-        print(UNKNOWN_COMMAND_MSG if amount is None else NONPOSITIVE_VALUE_MSG)
+    if parsed_amount is None or not valid_amount(parsed_amount):
+        print(UNKNOWN_COMMAND_MSG if parsed_amount is None else NONPOSITIVE_VALUE_MSG)
         return
 
-    if not valid_date(date_obj):
+    if parsed_date is None or not valid_date(parsed_date):
         print(INCORRECT_DATE_MSG)
         return
 
-    expenses.append((category, amount, date_obj))
+    expenses.append((category, parsed_amount, parsed_date))
     print(OP_SUCCESS_MSG)
 
 
 def process_stats(command_split: list[str]) -> None:
+    """Process stats command."""
     if len(command_split) != STATS_PARTS_EXPECTED:
         print(UNKNOWN_COMMAND_MSG)
         return
 
     date_str = command_split[1]
-    date_obj = extract_date(date_str)
+    parsed_date = extract_date(date_str)
 
-    if not valid_date(date_obj):
+    if parsed_date is None or not valid_date(parsed_date):
         print(INCORRECT_DATE_MSG)
         return
 
-    stats = make_up_statistics(date_obj)
+    stats = make_up_statistics(parsed_date)
     print_stats(stats, date_str)
 
 
 def main() -> None:
+    """Main entry point."""
     command = input()
     command_split = command.split(" ")
 
