@@ -28,6 +28,21 @@ OCT_DAYS = 31
 NOV_DAYS = 30
 DEC_DAYS = 31
 
+month_days_map = {
+        1: JAN_DAYS,
+        2: FEB_DAYS,
+        3: MAR_DAYS,
+        4: APR_DAYS,
+        5: MAY_DAYS,
+        6: JUN_DAYS,
+        7: JUL_DAYS,
+        8: AUG_DAYS,
+        9: SEP_DAYS,
+        10: OCT_DAYS,
+        11: NOV_DAYS,
+        12: DEC_DAYS,
+}
+
 Income = tuple[float, tuple[int, int, int]]
 Expense = tuple[str, float, tuple[int, int, int]]
 DateTriple = tuple[int, int, int]
@@ -46,20 +61,6 @@ def is_leap_year(year: int) -> bool:
 
 
 def get_month_days(month: int, year: int) -> int:
-    month_days_map = {
-        1: JAN_DAYS,
-        2: FEB_DAYS,
-        3: MAR_DAYS,
-        4: APR_DAYS,
-        5: MAY_DAYS,
-        6: JUN_DAYS,
-        7: JUL_DAYS,
-        8: AUG_DAYS,
-        9: SEP_DAYS,
-        10: OCT_DAYS,
-        11: NOV_DAYS,
-        12: DEC_DAYS,
-    }
 
     if month == FEBRUARY and is_leap_year(year):
         return LEAP_YEAR_DAY_LIMIT
