@@ -144,14 +144,14 @@ def _calculate_expense_totals(
 
     capital = sum(
         -amount
-        for _, amount, date in expenses
-        if should_include_expense(date, target_date)
+        for _, amount, exp_date in expenses
+        if should_include_expense(exp_date, target_date)
     )
 
     month_total = 0.0
     categories = {}
 
-    for category, amount, date in expenses:
+    for category, amount, exp_date in expenses:
         if date.month == target_date.month and date.year == target_date.year:
             month_total += amount
             categories[category] = categories.get(category, 0) + amount
