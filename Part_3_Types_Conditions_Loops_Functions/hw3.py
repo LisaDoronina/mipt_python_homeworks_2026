@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from datetime import date
+from types import MappingProxyType
 from typing import NamedTuple
 
 UNKNOWN_COMMAND_MSG = "Unknown command!"
@@ -17,9 +18,7 @@ INCOME_PARTS_EXPECTED = 3
 COST_PARTS_EXPECTED = 4
 STATS_PARTS_EXPECTED = 2
 
-ZERO = 0
-
-MONTH_DAYS = {
+MONTH_DAYS = MappingProxyType({
     1: 31,
     2: 28,
     3: 31,
@@ -32,7 +31,7 @@ MONTH_DAYS = {
     10: 31,
     11: 30,
     12: 31,
-}
+})
 
 
 class Stats(NamedTuple):
@@ -114,7 +113,7 @@ def valid_amount(amount: float | None) -> bool:
 
 
 def _capital_from_expenses(target_date: date) -> float:
-    total = ZERO
+    total: float = 0
     for _, amount, exp_date in expenses:
         if exp_date <= target_date:
             total -= amount
@@ -122,13 +121,13 @@ def _capital_from_expenses(target_date: date) -> float:
 
 
 def _monthly_expense_data(target_date: date) -> tuple[float, dict[str, float]]:
-    month_total = ZERO
+    month_total: float = 0
     categories: dict[str, float] = {}
 
     for category, amount, exp_date in expenses:
         if exp_date.month == target_date.month and exp_date.year == target_date.year:
             month_total += amount
-            categories[category] = categories.get(category, ZERO) + amount
+            categories[category] = categories.get(category, 0.0) + amount
 
     return month_total, categories
 
@@ -140,8 +139,8 @@ def _expense_totals(target_date: date) -> tuple[float, float, dict[str, float]]:
 
 
 def _income_totals(target_date: date) -> tuple[float, float]:
-    capital = ZERO
-    month_income = ZERO
+    capital: float = 0
+    month_income: float = 0
 
     for amount, inc_date in incomes:
         if inc_date <= target_date:
