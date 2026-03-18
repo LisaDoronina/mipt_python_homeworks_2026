@@ -125,35 +125,42 @@ def should_include_expense(exp_date: date, target_date: date) -> bool:
     return exp_date <= target_date
 
 
-def print_stats(stats: Stats, date_str: str) -> None:
-    """Print statistics."""
-    # Cast to proper types for mypy
-    total_capital = stats[0]
-    month_income = stats[1]
-    month_expenses = stats[2]
-    categories = stats[3]
+def _capital_from_expenses(target_date: date) -> float:
+    """Calculate capital impact from expenses."""
+    total = 0.0
+    for _, amount, exp_date in expenses:
+        if should_include_expense(exp_date, target_date):
+            total -= amount
+    return total
 
-    # Use ternary operator instead of if-else block
-    categories_dict = {} if not isinstance(categories, dict) else dict(categories)
 
-    print(f"Your statistics as of {date_str}:")
-    print(f"Total capital: {total_capital:.2f} rubles")
+def _monthly_expense_data(target_date: date) -> tuple[float, dict[str, float]]:
+    """Calculate monthly expense total and categories."""
+    month_total = 0.0
+    categories: dict[str, float] = {}
 
-    delta = month_income - month_expenses  # type: ignore
-    print(format_delta_message(float(delta)))  # Convert to float
+    for category, amount, exp_date in expenses:
+        if exp_date.month == target_date.month and exp_date.year == target_date.year:
+            month_total += amount
+            current = categories.get(category, 0.0)
+            categories[category] = current + amount
 
-    print(f"Income: {month_income:.2f} rubles")
-    print(f"Expenses: {month_expenses:.2f} rubles")
-    print()
-    print("Breakdown (category):")
+    return month_total, categories
 
-    print_breakdown(categories_dict)
+
+def _expense_totals(
+        target_date: date,
+) -> tuple[float, float, dict[str, float]]:
+    """Calculate expense totals and category breakdown."""
+    capital = _capital_from_expenses(target_date)
+    month_total, categories = _monthly_expense_data(target_date)
+    return capital, month_total, categories
 
 
 def _income_totals(target_date: date) -> tuple[float, float]:
     """Calculate income totals."""
-    capital = 0
-    month_income = 0
+    capital = 0.0
+    month_income = 0.0
 
     for inc_amount, inc_date in incomes:
         if should_include_income(inc_date, target_date):
@@ -162,13 +169,13 @@ def _income_totals(target_date: date) -> tuple[float, float]:
         if inc_date.month == target_date.month and inc_date.year == target_date.year:
             month_income += inc_amount
 
-    return float(capital), float(month_income)
+    return capital, month_income
 
 
 def make_up_statistics(target_date: date) -> Stats:
     """Calculate complete statistics for target date."""
     inc_capital, month_income = _income_totals(target_date)
-    exp_capital, month_expenses, categories = _calculate_expense_totals(target_date)
+    exp_capital, month_expenses, categories = _expense_totals(target_date)
 
     total_capital = inc_capital - exp_capital
     return [total_capital, month_income, month_expenses, categories]
@@ -203,20 +210,20 @@ def format_delta_message(delta: float) -> str:
 
 def print_stats(stats: Stats, date_str: str) -> None:
     """Print statistics."""
-    # Cast to proper types for mypy
     total_capital = stats[0]
     month_income = stats[1]
     month_expenses = stats[2]
     categories = stats[3]
 
-    # Use ternary operator instead of if-else block
+    # Handle categories with ternary operator
     categories_dict = {} if not isinstance(categories, dict) else dict(categories)
 
     print(f"Your statistics as of {date_str}:")
     print(f"Total capital: {total_capital:.2f} rubles")
 
-    delta = month_income - month_expenses  # type: ignore
-    print(format_delta_message(float(delta)))  # Convert to float
+    # Calculate delta without type ignore
+    delta = float(month_income) - float(month_expenses)
+    print(format_delta_message(delta))
 
     print(f"Income: {month_income:.2f} rubles")
     print(f"Expenses: {month_expenses:.2f} rubles")
