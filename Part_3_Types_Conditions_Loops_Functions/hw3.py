@@ -5,6 +5,8 @@ UNKNOWN_COMMAND_MSG = "Unknown command!"
 NONPOSITIVE_VALUE_MSG = "Value must be greater than zero!"
 INCORRECT_DATE_MSG = "Invalid date!"
 OP_SUCCESS_MSG = "Added"
+MONTH_TOTAL_KEY = "total"
+MONTH_CATEGORIES_KEY = "categories"
 
 MIN_MONTH = 1
 MAX_MONTH = 12
@@ -148,20 +150,20 @@ def _calculate_expense_totals(
         if should_include_expense(exp_date, target_date)
     )
 
-    month_data = {"total": 0, "categories": {}}
+    month_data = {MONTH_TOTAL_KEY: 0, MONTH_CATEGORIES_KEY: {}}
 
     for category, amount, exp_date in expenses:
         if (exp_date.month == target_date.month and
                 exp_date.year == target_date.year):
-            month_data["total"] += amount
-            month_data["categories"][category] = (
-                    month_data["categories"].get(category, 0) + amount
+            month_data[MONTH_TOTAL_KEY] += amount
+            month_data[MONTH_CATEGORIES_KEY][category] = (
+                    month_data[MONTH_CATEGORIES_KEY].get(category, 0) + amount
             )
 
     return (
         float(capital),
-        float(month_data["total"]),
-        month_data["categories"]
+        float(month_data[MONTH_TOTAL_KEY]),
+        month_data[MONTH_CATEGORIES_KEY]
     )
 
 
