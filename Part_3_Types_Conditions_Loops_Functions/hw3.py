@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 from datetime import date
-from typing import Optional, Union, Dict, List, Tuple
 
 UNKNOWN_COMMAND_MSG = "Unknown command!"
 NONPOSITIVE_VALUE_MSG = "Value must be greater than zero!"
@@ -45,12 +44,12 @@ month_days_map = {
     12: DEC_DAYS,
 }
 
-Income = Tuple[float, date]
-Expense = Tuple[str, float, date]
-Stats = List[Union[float, Dict[str, float]]]
+Income = tuple[float, date]
+Expense = tuple[str, float, date]
+Stats = list[float | dict[str, float]]
 
-incomes: List[Income] = []
-expenses: List[Expense] = []
+incomes: list[Income] = []
+expenses: list[Expense] = []
 
 
 def is_leap_year(year: int) -> bool:
@@ -67,7 +66,7 @@ def get_month_days(month: int, year: int) -> int:
     return month_days_map[month]
 
 
-def valid_date(date_obj: Optional[date]) -> bool:
+def valid_date(date_obj: date | None) -> bool:
     if date_obj is None:
         return False
 
@@ -80,7 +79,7 @@ def valid_date(date_obj: Optional[date]) -> bool:
     return day <= max_days
 
 
-def extract_date(date_str: str) -> Optional[date]:
+def extract_date(date_str: str) -> date | None:
     parts = date_str.split("-")
 
     if len(parts) != DATE_PARTS_EXPECTED:
@@ -97,7 +96,7 @@ def extract_date(date_str: str) -> Optional[date]:
         return None
 
 
-def parse_amount(amount: str) -> Optional[float]:
+def parse_amount(amount: str) -> float | None:
     amount = amount.replace(",", ".")
 
     if amount.count(".") > 1:
@@ -110,7 +109,7 @@ def parse_amount(amount: str) -> Optional[float]:
     return float(amount)
 
 
-def valid_amount(amount: Optional[float]) -> bool:
+def valid_amount(amount: float | None) -> bool:
     if amount is None:
         return False
     return amount > 0
@@ -126,9 +125,10 @@ def should_include_expense(exp_date: date, target_date: date) -> bool:
     return exp_date <= target_date
 
 
-def process_incomes(target_date: date) -> Tuple[float, float]:
-    capital = 0.0
-    month_income = 0.0
+def _calculate_income_totals(target_date: date) -> tuple[float, float]:
+    """Calculate total capital and monthly income."""
+    capital = 0
+    month_income = 0
 
     for inc_amount, inc_date in incomes:
         if should_include_income(inc_date, target_date):
@@ -137,13 +137,16 @@ def process_incomes(target_date: date) -> Tuple[float, float]:
         if inc_date.month == target_date.month and inc_date.year == target_date.year:
             month_income += inc_amount
 
-    return capital, month_income
+    return float(capital), float(month_income)
 
 
-def process_expenses(target_date: date) -> Tuple[float, float, Dict[str, float]]:
-    capital = 0.0
-    month_expenses = 0.0
-    categories: Dict[str, float] = {}
+def _calculate_expense_totals(
+    target_date: date,
+) -> tuple[float, float, dict[str, float]]:
+    """Calculate expense totals and category breakdown."""
+    capital = 0
+    month_expenses = 0
+    categories: dict[str, float] = {}
 
     for exp_category, exp_amount, exp_date in expenses:
         if should_include_expense(exp_date, target_date):
@@ -153,18 +156,18 @@ def process_expenses(target_date: date) -> Tuple[float, float, Dict[str, float]]
             month_expenses += exp_amount
             categories[exp_category] = categories.get(exp_category, 0) + exp_amount
 
-    return capital, month_expenses, categories
+    return float(capital), float(month_expenses), categories
 
 
 def make_up_statistics(target_date: date) -> Stats:
-    inc_capital, month_income = process_incomes(target_date)
-    exp_result = process_expenses(target_date)
-    total_capital = inc_capital - exp_result[0]
+    inc_capital, month_income = _calculate_income_totals(target_date)
+    exp_capital, month_expenses, categories = _calculate_expense_totals(target_date)
+    total_capital = inc_capital - exp_capital
 
-    return [total_capital, month_income, exp_result[1], exp_result[2]]
+    return [total_capital, month_income, month_expenses, categories]
 
 
-def print_breakdown(categories: Dict[str, float]) -> None:
+def print_breakdown(categories: dict[str, float]) -> None:
     if not categories:
         print()
         return
@@ -173,10 +176,21 @@ def print_breakdown(categories: Dict[str, float]) -> None:
         print(f"{i}. {category}: {int(amount)}")
 
 
+def _format_profit_message(delta: float) -> str:
+    """Format profit message."""
+    return f"This month's profit: {delta:.2f} rubles"
+
+
+def _format_loss_message(delta: float) -> str:
+    """Format loss message."""
+    return f"This month's loss: {abs(delta):.2f} rubles"
+
+
 def format_delta_message(delta: float) -> str:
+    """Format profit/loss message based on delta value."""
     if delta > 0:
-        return f"This month's profit: {delta:.2f} rubles"
-    return f"This month's loss: {-delta:.2f} rubles"
+        return _format_profit_message(delta)
+    return _format_loss_message(delta)
 
 
 def print_stats(stats: Stats, date_str: str) -> None:
@@ -196,7 +210,7 @@ def print_stats(stats: Stats, date_str: str) -> None:
     print_breakdown(categories)
 
 
-def process_income(command_split: List[str]) -> None:
+def process_income(command_split: list[str]) -> None:
     if len(command_split) != INCOME_PARTS_EXPECTED:
         print(UNKNOWN_COMMAND_MSG)
         return
@@ -217,7 +231,7 @@ def process_income(command_split: List[str]) -> None:
     print(OP_SUCCESS_MSG)
 
 
-def process_cost(command_split: List[str]) -> None:
+def process_cost(command_split: list[str]) -> None:
     if len(command_split) != COST_PARTS_EXPECTED:
         print(UNKNOWN_COMMAND_MSG)
         return
@@ -243,7 +257,7 @@ def process_cost(command_split: List[str]) -> None:
     print(OP_SUCCESS_MSG)
 
 
-def process_stats(command_split: List[str]) -> None:
+def process_stats(command_split: list[str]) -> None:
     if len(command_split) != STATS_PARTS_EXPECTED:
         print(UNKNOWN_COMMAND_MSG)
         return
