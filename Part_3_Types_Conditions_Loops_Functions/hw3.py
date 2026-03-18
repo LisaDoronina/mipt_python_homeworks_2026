@@ -144,8 +144,8 @@ def _calculate_expense_totals(
 
     capital = sum(
         -amount
-        for _, amount, exp_date in expenses
-        if should_include_expense(exp_date, target_date)
+        for _, amount, expense_date in expenses
+        if should_include_expense(expense_date, target_date)
     )
 
     month_total = 0.0
