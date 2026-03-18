@@ -151,7 +151,7 @@ def _calculate_expense_totals(
     month_total = 0.0
     categories = {}
 
-    for category, amount, exp_date in expenses:
+    for category, amount, _exp_date in expenses:
         if date.month == target_date.month and date.year == target_date.year:
             month_total += amount
             categories[category] = categories.get(category, 0) + amount
