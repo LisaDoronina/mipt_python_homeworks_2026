@@ -144,27 +144,19 @@ def _calculate_expense_totals(
         target_date: date,
 ) -> tuple[float, float, dict[str, float]]:
 
-    capital = sum(
-        -amount
-        for _, amount, exp_date in expenses
-        if should_include_expense(exp_date, target_date)
-    )
-
-    month_data = {MONTH_TOTAL_KEY: 0, MONTH_CATEGORIES_KEY: {}}
+    capital = 0.0
+    month_total = 0.0
+    categories: dict[str, float] = {}
 
     for category, amount, exp_date in expenses:
-        if (exp_date.month == target_date.month and
-                exp_date.year == target_date.year):
-            month_data[MONTH_TOTAL_KEY] += amount
-            month_data[MONTH_CATEGORIES_KEY][category] = (
-                    month_data[MONTH_CATEGORIES_KEY].get(category, 0) + amount
-            )
+        if should_include_expense(exp_date, target_date):
+            capital -= amount
 
-    return (
-        float(capital),
-        float(month_data[MONTH_TOTAL_KEY]),
-        month_data[MONTH_CATEGORIES_KEY]
-    )
+        if exp_date.month == target_date.month and exp_date.year == target_date.year:
+            month_total += amount
+            categories[category] = categories.get(category, 0.0) + amount
+
+    return capital, month_total, categories
 
 
 def make_up_statistics(target_date: date) -> Stats:
