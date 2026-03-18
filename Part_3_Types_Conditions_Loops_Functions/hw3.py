@@ -141,31 +141,30 @@ def _calculate_income_totals(target_date: date) -> tuple[float, float]:
 
 
 def _calculate_expense_totals(
-    target_date: date,
+        target_date: date,
 ) -> tuple[float, float, dict[str, float]]:
-    """Calculate expense totals and category breakdown."""
-    capital = 0
+    capital = sum(
+        -exp_amount
+        for exp_category, exp_amount, exp_date in expenses
+        if should_include_expense(exp_date, target_date)
+    )
+
     month_expenses = 0
     categories: dict[str, float] = {}
 
     for exp_category, exp_amount, exp_date in expenses:
-        if should_include_expense(exp_date, target_date):
-            capital -= exp_amount
-
         if exp_date.month == target_date.month and exp_date.year == target_date.year:
             month_expenses += exp_amount
             categories[exp_category] = categories.get(exp_category, 0) + exp_amount
 
     return float(capital), float(month_expenses), categories
 
-
 def make_up_statistics(target_date: date) -> Stats:
     inc_capital, month_income = _calculate_income_totals(target_date)
+
     exp_capital, month_expenses, categories = _calculate_expense_totals(target_date)
-    total_capital = inc_capital - exp_capital
 
-    return [total_capital, month_income, month_expenses, categories]
-
+    return [inc_capital - exp_capital, month_income, month_expenses, categories]
 
 def print_breakdown(categories: dict[str, float]) -> None:
     if not categories:
