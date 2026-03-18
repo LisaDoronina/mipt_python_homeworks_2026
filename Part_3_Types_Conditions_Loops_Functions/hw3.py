@@ -144,19 +144,25 @@ def _calculate_expense_totals(
 
     capital = sum(
         -amount
-        for _, amount, expense_date in expenses
-        if should_include_expense(expense_date, target_date)
+        for _, amount, exp_date in expenses
+        if should_include_expense(exp_date, target_date)
     )
 
-    month_total = 0.0
-    categories = {}
+    month_data = {"total": 0, "categories": {}}
 
-    for category, amount, _exp_date in expenses:
-        if date.month == target_date.month and date.year == target_date.year:
-            month_total += amount
-            categories[category] = categories.get(category, 0) + amount
+    for category, amount, exp_date in expenses:
+        if (exp_date.month == target_date.month and
+                exp_date.year == target_date.year):
+            month_data["total"] += amount
+            month_data["categories"][category] = (
+                    month_data["categories"].get(category, 0) + amount
+            )
 
-    return float(capital), month_total, categories
+    return (
+        float(capital),
+        float(month_data["total"]),
+        month_data["categories"]
+    )
 
 
 def make_up_statistics(target_date: date) -> Stats:
