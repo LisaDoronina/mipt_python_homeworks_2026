@@ -6,10 +6,10 @@ INCORRECT_DATE_MSG = "Invalid date!"
 NOT_EXISTS_CATEGORY = "Category not exists!"
 OP_SUCCESS_MSG = "Added"
 
-incomes: list[tuple[float, tuple[int, int, int]]] = []
-expenses: list[tuple[str, float, tuple[int, int, int]]] = []
+incomes = []
+expenses = []
 
-EXPENSE_CATEGORIES = {
+EXPENSE_CATEGORIES = {  # noqa: WPS407
     "Food": ("Supermarket", "Restaurants", "FastFood", "Coffee", "Delivery"),
     "Transport": ("Taxi", "Public transport", "Gas", "Car service"),
     "Housing": ("Rent", "Utilities", "Repairs", "Furniture"),
@@ -48,7 +48,7 @@ valid_days_in_month = [
 ]
 
 
-def is_leap_year(year: int) -> bool:
+def is_leap_year(year):
     if year % 400 == 0:
         return True
     if year % 100 == 0:
@@ -62,9 +62,7 @@ def validate_category(category_str):
 
     parent, sub = category_str.split("::", 1)
 
-    if not parent or not sub:
-        return None
-    if " " in parent or " " in sub:
+    if not parent or not sub or " " in parent or " " in sub:
         return None
     if parent not in EXPENSE_CATEGORIES:
         return None
@@ -74,7 +72,7 @@ def validate_category(category_str):
     return parent, sub
 
 
-def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
+def extract_date(maybe_dt):
     date = maybe_dt.split("-")
 
     if len(date) != DATE_SPLIT_LENGTH:
@@ -105,7 +103,7 @@ def valid_date(date):
     return day <= valid_days_in_month[month]
 
 
-def parse_amount(amount: str) -> float | None:
+def parse_amount(amount):
     amount = amount.replace(",", ".")
 
     if amount.count(".") > 1:
@@ -118,7 +116,7 @@ def parse_amount(amount: str) -> float | None:
     return float(amount)
 
 
-def valid_amount(amount: float | None) -> bool:
+def valid_amount(amount):
     if amount is None:
         return False
     return amount > 0
@@ -131,88 +129,123 @@ def get_all_categories():
     return "\n".join(categories)
 
 
-def is_before_or_on(trans_date: tuple[int, int, int], target_date: tuple[int, int, int]) -> bool:
-    trans_year, trans_month, trans_day = trans_date
-    target_year, target_month, target_day = target_date
-
-    if trans_year < target_year:
-        return True
-    if trans_year > target_year:
-        return False
-    if trans_month < target_month:
-        return True
-    if trans_month > target_month:
-        return False
-    return trans_day <= target_day
+def compare_years(trans_date, target_date):
+    if trans_date[2] != target_date[2]:
+        return trans_date[2] < target_date[2]
+    return None
 
 
-def process_transactions(target_date: tuple[int, int, int]) -> tuple[float, float, float, dict]:
-    _, month, year = target_date
-    capital: float = 0
-    month_income: float = 0
-    month_expenses: float = 0
+def compare_months(trans_date, target_date):
+    if trans_date[1] != target_date[1]:
+        return trans_date[1] < target_date[1]
+    return None
+
+
+def is_before_or_on(trans_date, target_date):
+    year_cmp = compare_years(trans_date, target_date)
+    if year_cmp is not None:
+        return year_cmp
+
+    month_cmp = compare_months(trans_date, target_date)
+    if month_cmp is not None:
+        return month_cmp
+
+    return trans_date[0] <= target_date[0]
+
+
+def is_same_month_year(date1, date2):
+    return (date1[2] == date2[2]
+            and date1[1] == date2[1])
+
+
+def calculate_income(target):
+    capital = 0
+    month_income = 0
+
+    for inc in incomes:
+        if is_before_or_on(inc[1], target):
+            capital += inc[0]
+            if is_same_month_year(inc[1], target):
+                month_income += inc[0]
+
+    return capital, month_income
+
+
+def calculate_expenses(target):
+    capital = 0
+    month_expenses = 0
     categories = {}
 
-    for inc_amount, inc_date in incomes:
-        if is_before_or_on(inc_date, target_date):
-            capital += inc_amount
-            _, inc_month, inc_year = inc_date
-            if inc_month == month and inc_year == year:
-                month_income += inc_amount
+    for exp in expenses:
+        if is_before_or_on(exp[2], target):
+            capital -= exp[1]
+            if is_same_month_year(exp[2], target):
+                month_expenses += exp[1]
+                cat = exp[0]
+                categories[cat] = categories.get(cat, 0) + exp[1]
 
-    for exp_category, exp_amount, exp_date in expenses:
-        if is_before_or_on(exp_date, target_date):
-            capital -= exp_amount
-            _, exp_month, exp_year = exp_date
-            if exp_month == month and exp_year == year:
-                month_expenses += exp_amount
-                categories[exp_category] = categories.get(exp_category, 0) + exp_amount
-
-    return capital, month_income, month_expenses, categories
+    return capital, month_expenses, categories
 
 
-def make_up_statistics(date: tuple[int, int, int]) -> list[float | dict[str, float]]:
-    capital, month_income, month_expenses, categories = process_transactions(date)
-    return [capital, month_income, month_expenses, categories]
+def process_transactions(target_date):
+    inc_capital, month_income = calculate_income(target_date)
+    exp_capital, month_expenses, categories = calculate_expenses(target_date)
+    return inc_capital + exp_capital, month_income, month_expenses, categories
 
 
-def format_amount(amount: float) -> str:
-    if amount.is_integer():
-        return f"{int(amount):,}".replace(",", " ")
-    return f"{amount:,.2f}".replace(",", " ")
+def make_up_statistics(date):
+    return list(process_transactions(date))
 
 
-def print_stats(stats, date):
-    capital = stats[0]
-    income = stats[1]
-    expenses_total = stats[2]
-    categories = stats[3]
-    delta = income - expenses_total
-
+def print_stats(stats, date):  # noqa: WPS213
     print(f"Your statistics as of {date}:")
-    print(f"Total capital: {capital:.2f} rubles")
+    print(f"Total capital: {stats[0]:.2f} rubles")
 
-    if delta > 0:
-        profit_msg = f"This month, the profit amounted to {delta:.2f} rubles."
-        print(profit_msg)
+    if stats[1] > stats[2]:
+        profit = stats[1] - stats[2]
+        print(f"This month, the profit amounted to {profit:.2f} rubles.")
     else:
-        loss_msg = f"This month, the loss amounted to {-delta:.2f} rubles."
-        print(loss_msg)
+        profit = stats[2] - stats[1]
+        print(f"This month, the loss amounted to {profit:.2f} rubles.")
 
-    print(f"Income: {income:.2f} rubles")
-    print(f"Expenses: {expenses_total:.2f} rubles")
+    print(f"Income: {stats[1]:.2f} rubles")
+    print(f"Expenses: {stats[2]:.2f} rubles")
     print()
     print("Details (category: amount):")
 
-    if categories:
-        for idx, (category, amount) in enumerate(sorted(categories.items()), 1):
-            formatted = f"{int(amount):,}"
-            print(f"{idx}. {category}: {formatted}")
-    else:
+    if not stats[3]:
         print()
+        return
+
+    sorted_categories = sorted(stats[3].items())
+    for idx, (category, amount) in enumerate(sorted_categories, 1):
+        print(f"{idx}. {category}: {int(amount):,}")
 
 
-def handle_income(command_split: list[str]) -> None:
+def validate_cost_input(category, amount_str, date_str):
+    category_parts = validate_category(category)
+    if category_parts is None:
+        print(NOT_EXISTS_CATEGORY)
+        print(get_all_categories())
+        return None
+
+    amount = parse_amount(amount_str)
+    if not valid_amount(amount):
+        if amount is None:
+            print(UNKNOWN_COMMAND_MSG)
+        else:
+            print(NONPOSITIVE_VALUE_MSG)
+        return None
+
+    date = extract_date(date_str)
+    if not valid_date(date):
+        print(INCORRECT_DATE_MSG)
+        return None
+
+    return category, amount, date
+
+
+def handle_income(command_split):
     if len(command_split) != INCOME_ARGS_COUNT:
         print(UNKNOWN_COMMAND_MSG)
         return
@@ -238,7 +271,7 @@ def handle_income(command_split: list[str]) -> None:
 
 
 def handle_cost(command_split):
-    if len(command_split) == COST_ARGS_COUNT and command_split[1] == "categories":
+    if len(command_split) == 2 and command_split[1] == "categories":
         print(get_all_categories())
         return
 
@@ -247,31 +280,14 @@ def handle_cost(command_split):
         return
 
     category, amount_str, date_str = command_split[1:]
+    result = validate_cost_input(category, amount_str, date_str)
 
-    category_parts = validate_category(category)
-    if category_parts is None:
-        print(NOT_EXISTS_CATEGORY)
-        print(get_all_categories())
-        return
-
-    amount = parse_amount(amount_str)
-    if not valid_amount(amount):
-        if amount is None:
-            print(UNKNOWN_COMMAND_MSG)
-        else:
-            print(NONPOSITIVE_VALUE_MSG)
-        return
-
-    date = extract_date(date_str)
-    if not valid_date(date):
-        print(INCORRECT_DATE_MSG)
-        return
-
-    expenses.append((category, amount, date))
-    print(OP_SUCCESS_MSG)
+    if result is not None:
+        expenses.append(result)
+        print(OP_SUCCESS_MSG)
 
 
-def handle_stats(command_split: list[str]) -> None:
+def handle_stats(command_split):
     if len(command_split) != STATS_ARGS_COUNT:
         print(UNKNOWN_COMMAND_MSG)
         return
@@ -286,7 +302,7 @@ def handle_stats(command_split: list[str]) -> None:
     print_stats(stats, date_str)
 
 
-def main() -> None:
+def main():
     command = input()
     command_split = command.split(" ")
 
