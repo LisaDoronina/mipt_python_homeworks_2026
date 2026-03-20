@@ -172,6 +172,9 @@ version = "0.1.0"
 source = { virtual = "." }
 
 [package.dev-dependencies]
+dev = [
+    { name = "ruff" },
+]
 lint = [
     { name = "mypy" },
     { name = "pyrefly" },
@@ -191,6 +194,7 @@ test = [
 [package.metadata]
 
 [package.metadata.requires-dev]
+dev = [{ name = "ruff", specifier = ">=0.14.13" }]
 lint = [
     { name = "mypy", specifier = ">=1.19.1" },
     { name = "pyrefly", specifier = ">=0.49.0" },

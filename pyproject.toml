@@ -40,6 +40,9 @@ project-includes = ["**/*.py"]
 project-excludes = ["**/*.ipynb*"]
 
 [dependency-groups]
+dev = [
+    "ruff>=0.14.13",
+]
 lint = [
     "mypy>=1.19.1",
     "pyrefly>=0.49.0",
