@@ -49,24 +49,29 @@ valid_days_in_month = [
 
 
 def is_leap_year(year: int) -> bool:
-    return year % 400 == 0 or (year % 4 == 0 and year % 100 != 0)
-
-
-def valid_date(date: tuple[int, int, int] | None) -> bool:
-    if date is None:
+    if year % 400 == 0:
+        return True
+    if year % 100 == 0:
         return False
+    return year % 4 == 0
 
-    day, month, year = date
 
-    if month < 1 or month > MONTHS_IN_YEAR or day < 1 or year < 1:
-        return False
+def validate_category(category_str):
+    if "::" not in category_str or not category_str:
+        return None
 
-    if month == FEBRUARY:
-        if is_leap_year(year):
-            return day <= DAYS_IN_FEBRUARY_LEAP
-        return day <= DAYS_IN_FEBRUARY_NORMAL
+    parent, sub = category_str.split("::", 1)
 
-    return day <= valid_days_in_month[month]
+    if not parent or not sub:
+        return None
+    if " " in parent or " " in sub:
+        return None
+    if parent not in EXPENSE_CATEGORIES:
+        return None
+    if sub not in EXPENSE_CATEGORIES[parent]:
+        return None
+
+    return parent, sub
 
 
 def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
@@ -81,6 +86,23 @@ def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
         return None
 
     return int(day), int(month), int(year)
+
+
+def valid_date(date):
+    if date is None:
+        return False
+
+    day, month, year = date
+
+    if month < 1 or month > MONTHS_IN_YEAR or day < 1 or year < 1:
+        return False
+
+    if month == FEBRUARY:
+        if is_leap_year(year):
+            return day <= DAYS_IN_FEBRUARY_LEAP
+        return day <= DAYS_IN_FEBRUARY_NORMAL
+
+    return day <= valid_days_in_month[month]
 
 
 def parse_amount(amount: str) -> float | None:
@@ -102,23 +124,11 @@ def valid_amount(amount: float | None) -> bool:
     return amount > 0
 
 
-def validate_category(category_str: str) -> tuple[str, str] | None:
-    if "::" not in category_str or not category_str:
-        return None
-
-    parent, sub = category_str.split("::", 1)
-
-    if not parent or not sub or " " in parent or " " in sub:
-        return None
-
-    if parent not in EXPENSE_CATEGORIES or sub not in EXPENSE_CATEGORIES[parent]:
-        return None
-
-    return parent, sub
-
-
-def get_all_categories() -> str:
-    return "\n".join(f"{parent}::{sub}" for parent, subs in EXPENSE_CATEGORIES.items() for sub in subs)
+def get_all_categories():
+    categories = []
+    for parent, subs in EXPENSE_CATEGORIES.items():
+        categories.extend([f"{parent}::{sub}" for sub in subs])
+    return "\n".join(categories)
 
 
 def is_before_or_on(trans_date: tuple[int, int, int], target_date: tuple[int, int, int]) -> bool:
@@ -165,14 +175,17 @@ def make_up_statistics(date: tuple[int, int, int]) -> list[float | dict[str, flo
     capital, month_income, month_expenses, categories = process_transactions(date)
     return [capital, month_income, month_expenses, categories]
 
+
 def format_amount(amount: float) -> str:
     if amount.is_integer():
         return f"{int(amount):,}".replace(",", " ")
     return f"{amount:,.2f}".replace(",", " ")
 
 
-def print_stats(stats: list[float | dict[str, float]], date: str) -> None:
-    capital, income, expenses_total = stats[0], stats[1], stats[2]
+def print_stats(stats, date):
+    capital = stats[0]
+    income = stats[1]
+    expenses_total = stats[2]
     categories = stats[3]
     delta = income - expenses_total
 
@@ -180,9 +193,11 @@ def print_stats(stats: list[float | dict[str, float]], date: str) -> None:
     print(f"Total capital: {capital:.2f} rubles")
 
     if delta > 0:
-        print(f"This month, the profit amounted to {delta:.2f} rubles.")
+        profit_msg = f"This month, the profit amounted to {delta:.2f} rubles."
+        print(profit_msg)
     else:
-        print(f"This month, the loss amounted to {-delta:.2f} rubles.")
+        loss_msg = f"This month, the loss amounted to {-delta:.2f} rubles."
+        print(loss_msg)
 
     print(f"Income: {income:.2f} rubles")
     print(f"Expenses: {expenses_total:.2f} rubles")
@@ -222,7 +237,7 @@ def handle_income(command_split: list[str]) -> None:
     print(OP_SUCCESS_MSG)
 
 
-def handle_cost(command_split: list[str]) -> None:
+def handle_cost(command_split):
     if len(command_split) == COST_ARGS_COUNT and command_split[1] == "categories":
         print(get_all_categories())
         return
@@ -240,8 +255,6 @@ def handle_cost(command_split: list[str]) -> None:
         return
 
     amount = parse_amount(amount_str)
-    date = extract_date(date_str)
-
     if not valid_amount(amount):
         if amount is None:
             print(UNKNOWN_COMMAND_MSG)
@@ -249,6 +262,7 @@ def handle_cost(command_split: list[str]) -> None:
             print(NONPOSITIVE_VALUE_MSG)
         return
 
+    date = extract_date(date_str)
     if not valid_date(date):
         print(INCORRECT_DATE_MSG)
         return
