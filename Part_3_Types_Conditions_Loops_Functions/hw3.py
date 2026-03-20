@@ -279,7 +279,7 @@ def handle_income(command_split):
 
 
 def handle_cost(command_split):
-    if len(command_split) == 2 and command_split[1] == "categories":
+    if len(command_split) == COST_ARGS_COUNT and command_split[1] == "categories":
         print(get_all_categories())
         return
 
