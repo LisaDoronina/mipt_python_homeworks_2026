@@ -9,17 +9,17 @@ OP_SUCCESS_MSG = "Added"
 incomes = []
 expenses = []
 
-EXPENSE_CATEGORIES = {  # noqa: WPS407
-    "Food": ("Supermarket", "Restaurants", "FastFood", "Coffee", "Delivery"),
-    "Transport": ("Taxi", "Public transport", "Gas", "Car service"),
-    "Housing": ("Rent", "Utilities", "Repairs", "Furniture"),
-    "Health": ("Pharmacy", "Doctors", "Dentist", "Lab tests"),
-    "Entertainment": ("Movies", "Concerts", "Games", "Subscriptions"),
-    "Clothing": ("Outerwear", "Casual", "Shoes", "Accessories"),
-    "Education": ("Courses", "Books", "Tutors"),
-    "Communications": ("Mobile", "Internet", "Subscriptions"),
-    "Other": (),
-}
+EXPENSE_CATEGORIES = (
+    ("Food", ("Supermarket", "Restaurants", "FastFood", "Coffee", "Delivery")),
+    ("Transport", ("Taxi", "Public transport", "Gas", "Car service")),
+    ("Housing", ("Rent", "Utilities", "Repairs", "Furniture")),
+    ("Health", ("Pharmacy", "Doctors", "Dentist", "Lab tests")),
+    ("Entertainment", ("Movies", "Concerts", "Games", "Subscriptions")),
+    ("Clothing", ("Outerwear", "Casual", "Shoes", "Accessories")),
+    ("Education", ("Courses", "Books", "Tutors")),
+    ("Communications", ("Mobile", "Internet", "Subscriptions")),
+    ("Other", ()),
+)
 
 MONTHS_IN_YEAR = 12
 DAYS_IN_JANUARY = 31
@@ -56,6 +56,13 @@ def is_leap_year(year):
     return year % 4 == 0
 
 
+def get_subcategories(parent):
+    for p, subs in EXPENSE_CATEGORIES:
+        if p == parent:
+            return subs
+    return ()
+
+
 def validate_category(category_str):
     if "::" not in category_str or not category_str:
         return None
@@ -64,12 +71,14 @@ def validate_category(category_str):
 
     if not parent or not sub or " " in parent or " " in sub:
         return None
-    if parent not in EXPENSE_CATEGORIES:
-        return None
-    if sub not in EXPENSE_CATEGORIES[parent]:
-        return None
 
-    return parent, sub
+    for item in EXPENSE_CATEGORIES:
+        if item[0] == parent:
+            if sub in item[1]:
+                return parent, sub
+            return None
+
+    return None
 
 
 def extract_date(maybe_dt):
@@ -197,7 +206,7 @@ def make_up_statistics(date):
     return list(process_transactions(date))
 
 
-def print_stats(stats, date):  # noqa: WPS213
+def print_stats(stats, date):
     print(f"Your statistics as of {date}:")
     print(f"Total capital: {stats[0]:.2f} rubles")
 
@@ -208,8 +217,7 @@ def print_stats(stats, date):  # noqa: WPS213
         profit = stats[2] - stats[1]
         print(f"This month, the loss amounted to {profit:.2f} rubles.")
 
-    print(f"Income: {stats[1]:.2f} rubles")
-    print(f"Expenses: {stats[2]:.2f} rubles")
+    print(f"Income: {stats[1]:.2f} rubles\nExpenses: {stats[2]:.2f} rubles")
     print()
     print("Details (category: amount):")
 
