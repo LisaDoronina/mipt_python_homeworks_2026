@@ -173,6 +173,10 @@ source = { virtual = "." }
 
 [package.dev-dependencies]
 dev = [
+    { name = "flake8" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
     { name = "ruff" },
 ]
 lint = [
@@ -194,7 +198,13 @@ test = [
 [package.metadata]
 
 [package.metadata.requires-dev]
-dev = [{ name = "ruff", specifier = ">=0.14.13" }]
+dev = [
+    { name = "flake8", specifier = ">=7.3.0" },
+    { name = "mypy", specifier = ">=1.19.1" },
+    { name = "pytest", specifier = ">=9.0.2" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "ruff", specifier = ">=0.14.13" },
+]
 lint = [
     { name = "mypy", specifier = ">=1.19.1" },
     { name = "pyrefly", specifier = ">=0.49.0" },
