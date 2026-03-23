@@ -175,7 +175,7 @@ def print_stats(stats: tuple[float, float, float, dict[str, float]], date: str) 
     if delta > 0:
         print(f"This month, the profit amounted to {delta:.2f} rubles.")
     else:
-        delta *= -1;
+        delta *= -1
         print(f"This month, the loss amounted to {delta:.2f} rubles.")
 
     print(f"Income: {income:.2f} rubles")
