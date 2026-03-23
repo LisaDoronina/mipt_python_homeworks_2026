@@ -267,13 +267,12 @@ def format_categories(categories: dict[str, float]) -> list[str]:
     return result
 
 
-def format_stats_text(report_date: str, stats: tuple[float, float, float, dict[str, float]]) -> str:
+def format_stats_text(stats: tuple[float, float, float, dict[str, float]]) -> str:
 
-    capital, income, expenses_total, categories = stats
+    _, income, expenses_total, categories = stats
 
     lines: list[str] = (
-        format_header(report_date, capital)
-        + format_delta(income, expenses_total)
+        format_delta(income, expenses_total)
         + format_income_expenses(income, expenses_total)
         + format_categories(categories)
     )
@@ -291,7 +290,9 @@ def stats_handler(report_date: str) -> str:
         return INCORRECT_DATE_MSG
 
     stats = process_transactions(date)
-    return format_stats_text(report_date, stats)
+    stats_text = format_stats_text(stats)
+    all_text = format_header(report_date, stats[0]) + stats_text.split("\n")
+    return "\n".join(all_text)
 
 
 def cost_categories_handler() -> str:
