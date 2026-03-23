@@ -124,9 +124,9 @@ def is_before_or_on(trans_date: Date, target_date: Date) -> bool:
 
 
 def is_same_month_year(date1: Date, date2: Date) -> bool:
-    same_1 = date1[1] == date2[1]
-    same_2 = date1[2] == date2[2]
-    return same_1 and same_2
+    same_day = date1[1] == date2[1]
+    same_month = date1[2] == date2[2]
+    return same_day and same_month
 
 
 def calculate_income(target: Date) -> tuple[float, float]:
@@ -152,8 +152,7 @@ def calculate_capital(target: Date) -> float:
     return capital
 
 
-def calculate_expenses(target: Date) -> tuple[float, float, dict[str, float]]:
-    capital = calculate_capital(target)
+def calculate_month_data(target: Date) -> tuple[float, dict[str, float]]:
     month_expenses: float = 0
     categories: dict[str, float] = {}
 
@@ -161,8 +160,15 @@ def calculate_expenses(target: Date) -> tuple[float, float, dict[str, float]]:
         if not is_before_or_on(date, target):
             continue
         if is_same_month_year(date, target):
-                month_expenses += amount
-                categories[category] = categories.get(category, 0.0) + amount
+            month_expenses += amount
+            categories[category] = categories.get(category, 0) + amount
+
+    return month_expenses, categories
+
+
+def calculate_expenses(target: Date) -> tuple[float, float, dict[str, float]]:
+    capital = calculate_capital(target)
+    month_expenses, categories = calculate_month_data(target)
 
     return capital, month_expenses, categories
 
@@ -177,13 +183,9 @@ def make_up_statistics(date: Date) -> tuple[float, float, float, dict[str, float
     return process_transactions(date)
 
 
-def print_stats(stats: tuple[float, float, float, dict[str, float]], date: str) -> None:
-    capital, income, expenses_total, categories = stats
+def print_breakdown(income: float, expenses: float) -> None:
+    delta = income - expenses
 
-    print(f"Your statistics as of {date}:")
-    print(f"Total capital: {capital:.2f} rubles")
-
-    delta = income - expenses_total
     if delta > 0:
         print(f"This month, the profit amounted to {delta:.2f} rubles.")
     else:
@@ -191,11 +193,24 @@ def print_stats(stats: tuple[float, float, float, dict[str, float]], date: str) 
         print(f"This month, the loss amounted to {delta:.2f} rubles.")
 
     print(f"Income: {income:.2f} rubles")
-    print(f"Expenses: {expenses_total:.2f} rubles\n")
+    print(f"Expenses: {expenses:.2f} rubles\n")
+
+
+def print_categories(categories: dict[str, float]) -> None:
     print("Details (category: amount):")
 
     for idx, (cat, amt) in enumerate(sorted(categories.items()), 1):
         print(f"{idx}. {cat}: {int(amt):,}")
+
+
+def print_stats(stats: tuple[float, float, float, dict[str, float]], date: str) -> None:
+    capital, income, expenses_total, categories = stats
+
+    print(f"Your statistics as of {date}:")
+    print(f"Total capital: {capital:.2f} rubles")
+
+    print_breakdown(income, expenses_total)
+    print_categories(categories)
 
 
 def income_handler(amount: str | float, income_date: str) -> str:
@@ -258,17 +273,17 @@ def cost_categories_handler() -> str:
     return get_all_categories()
 
 
-def stats_handler(report_date: str) -> str:
-    date = extract_date(report_date)
-
-    if not valid_date(date):
-        return INCORRECT_DATE_MSG
-
+def handle_invalid_date(date) -> str | None:
     if date is None:
         financial_transactions_storage.append({})
         return UNKNOWN_COMMAND_MSG
+    if not valid_date(date):
+        return INCORRECT_DATE_MSG
+    return None
 
-    capital, income, expenses_total, categories = make_up_statistics(date)
+
+def format_stats_text(report_date: str, stats: tuple[float, float, float, dict[str, float]]) -> str:
+    capital, income, expenses_total, categories = stats
 
     lines = [
         f"Your statistics as of {report_date}:",
@@ -276,11 +291,10 @@ def stats_handler(report_date: str) -> str:
     ]
 
     delta = income - expenses_total
-    if delta > 0:
+    if delta >= 0:
         lines.append(f"This month, the profit amounted to {delta:.2f} rubles.")
     else:
-        delta *= -1
-        lines.append(f"This month, the loss amounted to {delta:.2f} rubles.")
+        lines.append(f"This month, the loss amounted to {abs(delta):.2f} rubles.")
 
     lines.append(f"Income: {income:.2f} rubles")
     lines.append(f"Expenses: {expenses_total:.2f} rubles\n")
@@ -290,6 +304,19 @@ def stats_handler(report_date: str) -> str:
         lines.append(f"{cat}: {int(amt)}")
 
     return "\n".join(lines)
+
+
+def stats_handler(report_date: str) -> str:
+    date = extract_date(report_date)
+
+    if date is None:
+        financial_transactions_storage.append({})
+        return UNKNOWN_COMMAND_MSG
+    if not valid_date(date):
+        return INCORRECT_DATE_MSG
+
+    stats = make_up_statistics(date)
+    return format_stats_text(report_date, stats)
 
 
 def handle_income(command_split: list[str]) -> None:
