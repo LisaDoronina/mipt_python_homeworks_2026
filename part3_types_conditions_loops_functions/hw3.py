@@ -124,7 +124,9 @@ def is_before_or_on(trans_date: Date, target_date: Date) -> bool:
 
 
 def is_same_month_year(date1: Date, date2: Date) -> bool:
-    return date1[1] == date2[1] and date1[2] == date2[2]
+    same_1 = date1[1] == date2[1]
+    same_2 = date1[2] == date2[2]
+    return same_1 and same_2
 
 
 def calculate_income(target: Date) -> tuple[float, float]:
@@ -140,15 +142,25 @@ def calculate_income(target: Date) -> tuple[float, float]:
     return capital, month_income
 
 
-def calculate_expenses(target: Date) -> tuple[float, float, dict[str, float]]:
+def calculate_capital(target: Date) -> float:
     capital: float = 0
+
+    for _, amount, date in expenses:
+        if is_before_or_on(date, target):
+            capital -= amount
+
+    return capital
+
+
+def calculate_expenses(target: Date) -> tuple[float, float, dict[str, float]]:
+    capital = calculate_capital(target)
     month_expenses: float = 0
     categories: dict[str, float] = {}
 
     for category, amount, date in expenses:
-        if is_before_or_on(date, target):
-            capital -= amount
-            if is_same_month_year(date, target):
+        if not is_before_or_on(date, target):
+            continue
+        if is_same_month_year(date, target):
                 month_expenses += amount
                 categories[category] = categories.get(category, 0.0) + amount
 
