@@ -54,7 +54,7 @@ def validate_category(category_str: str) -> tuple[str, str] | None:
 
     parent, sub = category_str.split("::", 1)
 
-    if not parent or not sub or " " in parent or " " in sub:
+    if not parent or not sub:
         return None
     if parent not in EXPENSE_CATEGORIES:
         return None
