@@ -298,6 +298,10 @@ def stats_handler(report_date: str) -> str:
     return format_stats_text(report_date, stats)
 
 
+def cost_categories_handler() -> str:
+    return get_all_categories()
+
+
 def handle_income(command_split: list[str]) -> None:
     if len(command_split) != INCOME_ARGS_COUNT:
         print(UNKNOWN_COMMAND_MSG)
