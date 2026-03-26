@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from typing import Any
+
 UNKNOWN_COMMAND_MSG = "Unknown command!"
 NONPOSITIVE_VALUE_MSG = "Value must be grater than zero!"
 INCORRECT_DATE_MSG = "Invalid date!"
@@ -10,7 +12,7 @@ Date = tuple[int, int, int]
 
 incomes: list[tuple[float, Date]] = []
 expenses: list[tuple[str, float, Date]] = []
-financial_transactions_storage: list[dict[str, object]] = []
+financial_transactions_storage: list[dict[str, Any]] = []
 
 EXPENSE_CATEGORIES = {
     "Food": ("Supermarket", "Restaurants", "FastFood", "Coffee", "Delivery"),
