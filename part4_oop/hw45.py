@@ -119,13 +119,10 @@ class LFUPolicy(Policy[K]):
 
         last_item = max(self._key_order.items(), key=lambda x: x[1])
         last_key = last_item[0]
-        all_to_evict = {}
-
-        for key, value in self._key_counter.items():
-            if key != last_key:
-                all_to_evict[key] = value
-
+        all_to_evict = self._key_counter.copy()
+        all_to_evict.pop(last_key)
         min_freq = min(all_to_evict.values())
+
         old_keys = [k for k, v in all_to_evict.items() if v == min_freq]
         return min(old_keys, key=lambda k: self._key_order[k])
 
@@ -185,7 +182,7 @@ class CachedProperty[V]:
 
     def __get__(self, instance: HasCache[Any, Any] | None, owner: type) -> V:
         if instance is None:
-            return cast(V, self)
+            return cast("V", self)
 
         cache = instance.get_cache()
         key = self.name
@@ -193,7 +190,7 @@ class CachedProperty[V]:
         if cache.exists(key):
             result = cache.get(key)
             if result is not None:
-                return cast(V, result)
+                return cast("V", result)
 
         value = self.func(instance)
         cache.set(key, value)
