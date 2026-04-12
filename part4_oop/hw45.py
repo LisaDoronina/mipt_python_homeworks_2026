@@ -22,8 +22,7 @@ class DictStorage(Storage[K, V]):
         return key in self._data
 
     def remove(self, key: K) -> None:
-        if self.exists(key):
-            del self._data[key]
+        self._data.pop(key, None)
 
     def clear(self) -> None:
         self._data.clear()
@@ -33,31 +32,23 @@ class DictStorage(Storage[K, V]):
 class FIFOPolicy(Policy[K]):
     capacity: int = 5
     _order: list[K] = field(default_factory=list, init=False)
-    _last_added: K | None = field(default=None, init=False)
 
     def register_access(self, key: K) -> None:
         if key not in self._order:
             self._order.append(key)
-            self._last_added = key
 
     def get_key_to_evict(self) -> K | None:
         if len(self._order) <= self.capacity:
             return None
 
-        for key in self._order:
-            if key != self._last_added:
-                return key
-        return None
+        return self._order[0]
 
     def remove_key(self, key: K) -> None:
         if key in self._order:
             self._order.remove(key)
-            if self._last_added == key:
-                self._last_added = None
 
     def clear(self) -> None:
         self._order.clear()
-        self._last_added = None
 
     @property
     def has_keys(self) -> bool:
@@ -68,32 +59,24 @@ class FIFOPolicy(Policy[K]):
 class LRUPolicy(Policy[K]):
     capacity: int = 5
     _order: list[K] = field(default_factory=list, init=False)
-    _last_added: K | None = field(default=None, init=False)
 
     def register_access(self, key: K) -> None:
         if key in self._order:
             self._order.remove(key)
         self._order.append(key)
-        self._last_added = key
 
     def get_key_to_evict(self) -> K | None:
         if len(self._order) <= self.capacity:
             return None
 
-        for key in self._order:
-            if key != self._last_added:
-                return key
-        return None
+        return self._order[0]
 
     def remove_key(self, key: K) -> None:
         if key in self._order:
             self._order.remove(key)
-            if self._last_added == key:
-                self._last_added = None
 
     def clear(self) -> None:
         self._order.clear()
-        self._last_added = None
 
     @property
     def has_keys(self) -> bool:
@@ -117,14 +100,23 @@ class LFUPolicy(Policy[K]):
         if len(self._key_counter) <= self.capacity:
             return None
 
-        last_item = max(self._key_order.items(), key=lambda x: x[1])
-        last_key = last_item[0]
-        all_to_evict = self._key_counter.copy()
-        all_to_evict.pop(last_key)
-        min_freq = min(all_to_evict.values())
+        last_key = max(self._key_order, key=lambda k: self._key_order[k])
+        key_to_evict = None
+        best_freq = float("inf")
+        best_order = float("inf")
 
-        old_keys = [k for k, v in all_to_evict.items() if v == min_freq]
-        return min(old_keys, key=lambda k: self._key_order[k])
+        for key, freq in self._key_counter.items():
+            if key == last_key:
+                continue
+
+            order = self._key_order[key]
+
+            if freq < best_freq or (freq == best_freq and order < best_order):
+                key_to_evict = key
+                best_freq = freq
+                best_order = order
+
+        return key_to_evict
 
     def remove_key(self, key: K) -> None:
         self._key_counter.pop(key, None)
