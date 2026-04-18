@@ -1,7 +1,7 @@
 import json
 from datetime import UTC, datetime, timedelta
 from functools import wraps
-from typing import Any, ParamSpec, Protocol, TypeVar
+from typing import Any, ParamSpec, Protocol, TypeVar, Callable
 from urllib.request import urlopen
 
 INVALID_CRITICAL_COUNT = "Breaker count must be positive integer!"
@@ -28,7 +28,6 @@ class BreakerError(Exception):
         self.func_name = func_name
         self.block_time = block_time
         self.source_exception = source_exception
-
         super().__init__(TOO_MUCH)
 
 
@@ -39,7 +38,21 @@ class CircuitBreaker:
         time_to_recover: int = DEFAULT_RECOVERY_TIME,
         triggers_on: type[Exception] = Exception,
     ) -> None:
-        errors = []
+
+        self.validate_input(critical_count, time_to_recover)
+
+        self.critical_count = critical_count
+        self.time_to_recover = time_to_recover
+        self.triggers_on = triggers_on
+
+        self.errors_count: int = 0
+        self.is_open: bool = False
+        self.open_until: datetime | None = None
+        self.func_name: str = ""
+
+    @staticmethod
+    def validate_input(critical_count: int, time_to_recover: int) -> None:
+        errors: list[Exception] = []
 
         if not isinstance(critical_count, int) or critical_count <= 0:
             errors.append(ValueError(INVALID_CRITICAL_COUNT))
@@ -50,46 +63,44 @@ class CircuitBreaker:
         if errors:
             raise ExceptionGroup(VALIDATIONS_FAILED, errors)
 
-        self.critical_count = critical_count
-        self.time_to_recover = time_to_recover
-        self.triggers_on = triggers_on
+    def _should_block(self) -> bool:
+        if not self.is_open:
+            return False
 
-        self.errors_count: int = 0
-        self.is_open: bool = False
-        self.open_until: datetime
-        self.func_name: str
+        cur_time = datetime.now(UTC)
+        if self.open_until and cur_time >= self.open_until:
+            self.is_open = False
+            self.errors_count = 0
+            return False
+        return True
 
-    def __call__(self, func: CallableWithMeta[P, R_co]) -> CallableWithMeta[P, R_co]:
+    def _notice_error(self, error: Exception) -> None:
+        if not isinstance(error, self.triggers_on):
+            raise error
+
+        self.errors_count += 1
+        if self.errors_count >= self.critical_count:
+            self.is_open = True
+            right_time = datetime.now(UTC)
+            self.open_until = right_time + timedelta(seconds=self.time_to_recover)
+
+            raise BreakerError(self.func_name, right_time, error) from error
+        raise error
+
+    def __call__(self, func: CallableWithMeta[P, R_co]) -> Callable[..., R_co]:
         self.func_name = f"{func.__module__}.{func.__name__}"
 
         @wraps(wrapped=func)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R_co:
-            if self.is_open:
-                cur_time = datetime.now(UTC)
-
-                if self.open_until and cur_time >= self.open_until:
-                    self.is_open = False
-                    self.errors_count = 0
-                else:
-                    raise BreakerError(self.func_name, self.open_until, None)
+        def wrapper(*args, **kwargs) -> R_co:
+            if self._should_block():
+                raise BreakerError(self.func_name, self.open_until, None)
 
             try:
                 result = func(*args, **kwargs)
-                self.errors_count = 0
-
             except Exception as e:
-                if isinstance(e, self.triggers_on):
-                    self.errors_count += 1
-
-                    if self.errors_count >= self.critical_count:
-                        self.is_open = True
-                        right_time = datetime.now(UTC)
-                        self.open_until = right_time + timedelta(seconds=self.time_to_recover)
-
-                        raise BreakerError(self.func_name, right_time, e) from e
-
-                raise
+                self._notice_error(e)
             else:
+                self.errors_count = 0
                 return result
 
         return wrapper
