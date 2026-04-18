@@ -126,4 +126,3 @@ def get_comments(post_id: int) -> Any:
 
 if __name__ == "__main__":
     comments = get_comments(1)
-    
