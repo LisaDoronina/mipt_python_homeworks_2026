@@ -85,7 +85,7 @@ class CircuitBreaker:
     def __call__(self, func: CallableWithMeta[P, R_co]) -> Callable[..., R_co]:
         self.func_name = f"{func.__module__}.{func.__name__}"
 
-        @wraps(wrapped=func)
+        @wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R_co:
             if self._should_block():
                 if self.open_until is None:
