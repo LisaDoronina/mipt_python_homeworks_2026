@@ -83,9 +83,10 @@ class CircuitBreaker:
 
         raise BreakerError(self._func_name, self._open_until, None)
 
-    def _run_func(self, func, *args, **kwargs):
+    def _run_func(self, func: Callable[P, R_co], *args: P.args, **kwargs: P.kwargs) -> R_co:
         try:
-            return func(*args, **kwargs)
+            result: R_co = func(*args, **kwargs)
+            return result
         except Exception as e:
             if isinstance(e, self.triggers_on):
                 self._notice_error(e)
