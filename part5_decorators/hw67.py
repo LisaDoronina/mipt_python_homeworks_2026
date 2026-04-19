@@ -86,11 +86,12 @@ class CircuitBreaker:
     def _run_func(self, func: Callable[P, R_co], *args: P.args, **kwargs: P.kwargs) -> R_co:
         try:
             result: R_co = func(*args, **kwargs)
-            return result
         except Exception as e:
             if isinstance(e, self.triggers_on):
                 self._notice_error(e)
             raise
+        else:
+            return result
 
     def _should_block(self) -> bool:
         if not self._is_open:
