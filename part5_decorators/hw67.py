@@ -39,7 +39,6 @@ class CircuitBreaker:
         time_to_recover: int = DEFAULT_RECOVERY_TIME,
         triggers_on: type[Exception] = Exception,
     ) -> None:
-
         self.validate_input(critical_count, time_to_recover)
         self.critical_count = critical_count
         self.time_to_recover = time_to_recover
