@@ -41,11 +41,9 @@ class CircuitBreaker:
     ) -> None:
 
         self.validate_input(critical_count, time_to_recover)
-
         self.critical_count = critical_count
         self.time_to_recover = time_to_recover
         self.triggers_on = triggers_on
-
         self.errors_count: int = 0
         self.is_open: bool = False
         self.open_until: datetime | None = None
@@ -81,7 +79,6 @@ class CircuitBreaker:
             self.is_open = True
             right_time = datetime.now(UTC)
             self.open_until = right_time + timedelta(seconds=self.time_to_recover)
-
             raise BreakerError(self.func_name, right_time, error) from error
         raise error
 
@@ -94,7 +91,6 @@ class CircuitBreaker:
                 if self.open_until is None:
                     raise BreakerError(self.func_name, datetime.now(UTC), None)
                 raise BreakerError(self.func_name, self.open_until, None)
-
             try:
                 result = func(*args, **kwargs)
             except Exception as e:
@@ -112,13 +108,6 @@ circuit_breaker = CircuitBreaker(5, 30, Exception)
 
 
 def get_comments(post_id: int) -> Any:
-    """
-    Получает комментарии к посту
-    Args:
-        post_id (int): Идентификатор поста
-    Returns:
-        list[dict[int | str]]: Список комментариев
-    """
     response = urlopen(f"https://jsonplaceholder.typicode.com/comments?postId={post_id}")
     return json.loads(response.read())
 
