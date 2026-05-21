@@ -23,7 +23,17 @@ def _env_or_yaml(env: str, cfg: dict[str, object], key: str) -> str | None:
     if val is not None:
         return val
     raw = cfg.get(key)
-    return str(raw) if raw is not None else None
+    return None if raw is None else str(raw)  # WPS504: positive condition first
+
+
+def _get_int(env: str, cfg: dict[str, object], key: str) -> int | None:
+    val = _env_or_yaml(env, cfg, key)
+    return int(val) if val else None
+
+
+def _get_float(env: str, cfg: dict[str, object], key: str, default: float) -> float:
+    val = _env_or_yaml(env, cfg, key)
+    return float(val) if val else default
 
 
 def load_config() -> Config:
@@ -34,7 +44,7 @@ def load_config() -> Config:
         with open('config.yaml', encoding='utf-8') as f:
             cfg = yaml.safe_load(f) or {}
 
-    has_env = bool(os.environ.get('API_KEY') or os.environ.get('API_HOST'))
+    has_env = 'API_KEY' in os.environ or 'API_HOST' in os.environ  # WPS221: simpler form
 
     if not has_yaml and not has_env:
         print('Ошибка: конфигурация не найдена.')
@@ -52,25 +62,14 @@ def load_config() -> Config:
         sys.exit(1)
 
     model = _env_or_yaml('MODEL', cfg, 'model') or 'gpt-4o-mini'
-
-    limit_message_s = _env_or_yaml('LIMIT_MESSAGE', cfg, 'limit_message')
-    limit_message = int(limit_message_s) if limit_message_s else None
-
-    limit_chars_s = _env_or_yaml('LIMIT_CHARS', cfg, 'limit_chars')
-    limit_chars = int(limit_chars_s) if limit_chars_s else None
-
-    temperature_s = _env_or_yaml('TEMPERATURE', cfg, 'temperature')
-    temperature = float(temperature_s) if temperature_s else 0.7
-
     system_prompt_raw = cfg.get('system_prompt')
-    system_prompt = str(system_prompt_raw) if system_prompt_raw else None
 
     return Config(
         api_key=api_key,
         api_host=api_host,
         model=model,
-        temperature=temperature,
-        limit_message=limit_message,
-        limit_chars=limit_chars,
-        system_prompt=system_prompt,
+        temperature=_get_float('TEMPERATURE', cfg, 'temperature', 0.7),
+        limit_message=_get_int('LIMIT_MESSAGE', cfg, 'limit_message'),
+        limit_chars=_get_int('LIMIT_CHARS', cfg, 'limit_chars'),
+        system_prompt=None if system_prompt_raw is None else str(system_prompt_raw),
     )
