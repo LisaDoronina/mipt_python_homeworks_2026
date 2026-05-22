@@ -164,14 +164,7 @@ def build_messages(history: list[Message], system_prompt: str | None) -> list[Me
     return msgs
 
 
-def split_chunks(text: str, mode: str, size: int) -> list[str]:
-    if mode == 'len':
-        indices = range(0, len(text), size)
-        chunks: list[str] = []
-        for i in indices:
-            chunks.append(text[i : i + size])
-        return chunks
-
+def _get_paragraphs(text: str) -> list[str]:
     paragraphs: list[str] = []
     for p in re.split(r'\n{2,}', text):
         if p.strip():
@@ -180,12 +173,21 @@ def split_chunks(text: str, mode: str, size: int) -> list[str]:
         for p in text.split('\n'):
             if p.strip():
                 paragraphs.append(p.strip())
+    return paragraphs
 
+
+def split_chunks(text: str, mode: str, size: int) -> list[str]:
+    if mode == 'len':
+        chunks: list[str] = []
+        for i in range(0, len(text), size):
+            chunks.append(text[i:i + size])
+        return chunks
+
+    paragraphs = _get_paragraphs(text)
     sep = '\n\n'
-    indices = range(0, len(paragraphs), size)
     result: list[str] = []
-    for i in indices:
-        result.append(sep.join(paragraphs[i : i + size]))
+    for i in range(0, len(paragraphs), size):
+        result.append(sep.join(paragraphs[i:i + size]))
     return result
 
 
@@ -289,27 +291,41 @@ def _handle_message(
     return history
 
 
+def _read_input() -> str | None:
+    try:
+        return input(_PROMPT)
+    except EOFError:
+        return None
+
+
+def _dispatch(
+    stripped: str,
+    user_input: str,
+    history: list[Message],
+    config: Config,
+) -> tuple[list[Message], bool]:
+    if stripped in _QUIT:
+        print('До свидания!')
+        return history, True
+    if stripped == '/reset':
+        return _handle_reset(history), False
+    if re.match(r'^/file_?chunk', stripped):
+        handle_file_chunk(stripped, config)
+        return history, False
+    return _handle_message(user_input, history, config), False
+
+
 def process(config: Config, history: list[Message]) -> None:
     while True:
-        try:
-            user_input = input(_PROMPT)
-        except EOFError:
+        user_input = _read_input()
+        if user_input is None:
             break
-
         stripped = user_input.strip()
         if not stripped:
             continue
-        if stripped in _QUIT:
-            print('До свидания!')
+        history, should_quit = _dispatch(stripped, user_input, history, config)
+        if should_quit:
             break
-        if stripped == '/reset':
-            history = _handle_reset(history)
-            continue
-        if re.match(r'^/file_?chunk', stripped):
-            handle_file_chunk(stripped, config)
-            continue
-
-        history = _handle_message(user_input, history, config)
 
 
 def main() -> None:
