@@ -167,18 +167,26 @@ def build_messages(history: list[Message], system_prompt: str | None) -> list[Me
 def split_chunks(text: str, mode: str, size: int) -> list[str]:
     if mode == 'len':
         indices = range(0, len(text), size)
-        return [text[i : i + size] for i in indices]
+        chunks: list[str] = []
+        for i in indices:
+            chunks.append(text[i : i + size])
+        return chunks
 
-    paragraphs = [p.strip() for p in re.split(r'\n{2,}', text) if p.strip()]
+    paragraphs: list[str] = []
+    for p in re.split(r'\n{2,}', text):
+        if p.strip():
+            paragraphs.append(p.strip())
     if not paragraphs:
-        paragraphs = []
         for p in text.split('\n'):
             if p.strip():
                 paragraphs.append(p.strip())
 
     sep = '\n\n'
     indices = range(0, len(paragraphs), size)
-    return [sep.join(paragraphs[i : i + size]) for i in indices]
+    result: list[str] = []
+    for i in indices:
+        result.append(sep.join(paragraphs[i : i + size]))
+    return result
 
 
 def _load_file(filepath: str) -> str | None:
@@ -262,6 +270,25 @@ def check(
     return content, history, answer
 
 
+def _handle_reset(history: list[Message]) -> list[Message]:
+    clear_screen()
+    print('История очищена.')
+    return []
+
+
+def _handle_message(
+    user_input: str,
+    history: list[Message],
+    config: Config,
+) -> list[Message]:
+    content, history, answer = check(user_input, history, config)
+    if answer is None:
+        history.pop()
+        return history
+    history.append(_AssistantMsg(role='assistant', content=answer))
+    return history
+
+
 def process(config: Config, history: list[Message]) -> None:
     while True:
         try:
@@ -276,19 +303,13 @@ def process(config: Config, history: list[Message]) -> None:
             print('До свидания!')
             break
         if stripped == '/reset':
-            history = []
-            clear_screen()
-            print('История очищена.')
+            history = _handle_reset(history)
             continue
         if re.match(r'^/file_?chunk', stripped):
             handle_file_chunk(stripped, config)
             continue
 
-        content, history, answer = check(user_input, history, config)
-        if answer is None:
-            history.pop()
-            continue
-        history.append(_AssistantMsg(role='assistant', content=answer))
+        history = _handle_message(user_input, history, config)
 
 
 def main() -> None:
