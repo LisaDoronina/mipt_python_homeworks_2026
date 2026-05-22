@@ -12,7 +12,7 @@ import httpx
 from config import Config, load_config
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
-_QUIT = frozenset({r'\q', '/q'})
+_QUIT = frozenset((r'\q', r'/q'))
 _UTF8 = 'utf-8'
 _PROMPT = '>>> '
 _SURROGATES = re.compile('[\ud800-\udfff]')
@@ -41,7 +41,8 @@ def _clean(s: str) -> str:
 
 
 def _extract_delta(obj: Any) -> str:
-    return _clean(obj['choices'][0]['delta'].get('content') or '')
+    delta = _clean(obj['choices'][0]['delta'].get('content') or '')
+    return delta
 
 
 def _parse_delta(line: str) -> str:
@@ -73,7 +74,8 @@ def _read_stream(resp: httpx.Response) -> str:
 
 
 def _stream_chat(config: Config, messages: list[Message]) -> str:
-    url = f'{config.api_host.rstrip("/")}/chat/completions'
+    host = config.api_host.rstrip('/')
+    url = f'{host}/chat/completions'
     headers = {'Authorization': f'Bearer {config.api_key}', 'Content-Type': 'application/json'}
     payload: dict[str, object] = {
         'model': config.model,
@@ -168,7 +170,10 @@ def split_chunks(text: str, mode: str, size: int) -> list[str]:
 
     paragraphs = [p.strip() for p in re.split(r'\n{2,}', text) if p.strip()]
     if not paragraphs:
-        paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+        paragraphs = []
+        for p in text.split('\n'):
+            if p.strip():
+                paragraphs.append(p.strip())
 
     sep = '\n\n'
     indices = range(0, len(paragraphs), size)
@@ -244,14 +249,7 @@ def handle_file_chunk(command: str, config: Config) -> None:
     print('Обработка файла завершена.')
 
 
-def main() -> None:
-    if hasattr(sys.stdout, 'reconfigure'):
-        sys.stdout.reconfigure(encoding=_UTF8, errors='replace')
-
-    config = load_config()
-    history: list[Message] = []
-    print(r'ИИ-ассистент запущен. Введите \q для выхода, /reset для сброса чата.')
-
+def process(config, history) -> None:
     while True:
         try:
             user_input = input(_PROMPT)
@@ -264,7 +262,7 @@ def main() -> None:
         if stripped in _QUIT:
             print('До свидания!')
             break
-        if stripped in ('/reset', r'\reset'):
+        if stripped == '/reset':
             history = []
             clear_screen()
             print('История очищена.')
@@ -281,6 +279,17 @@ def main() -> None:
             history.pop()
             continue
         history.append(_AssistantMsg(role='assistant', content=answer))
+
+
+def main() -> None:
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding=_UTF8, errors='replace')
+
+    config = load_config()
+    history: list[Message] = []
+    print(r'ИИ-ассистент запущен. Введите \q для выхода, /reset для сброса чата.')
+
+    process(config, history)
 
 
 if __name__ == '__main__':

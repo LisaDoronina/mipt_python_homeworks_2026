@@ -37,6 +37,11 @@ def _get_float(env: str, cfg: dict[str, object], key: str, default: float) -> fl
 
 
 def load_config() -> Config:
+    """
+
+    Returns:
+        Config:
+    """
     cfg: dict[str, object] = {}
     has_yaml = os.path.exists('config.yaml')
 
