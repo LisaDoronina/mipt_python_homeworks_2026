@@ -167,7 +167,7 @@ def build_messages(history: list[Message], system_prompt: str | None) -> list[Me
 def split_chunks(text: str, mode: str, size: int) -> list[str]:
     if mode == 'len':
         indices = range(0, len(text), size)
-        return [text[i: i + size] for i in indices]
+        return [text[i : i + size] for i in indices]
 
     paragraphs = [p.strip() for p in re.split(r'\n{2,}', text) if p.strip()]
     if not paragraphs:
@@ -178,7 +178,7 @@ def split_chunks(text: str, mode: str, size: int) -> list[str]:
 
     sep = '\n\n'
     indices = range(0, len(paragraphs), size)
-    return [sep.join(paragraphs[i: i + size]) for i in indices]
+    return [sep.join(paragraphs[i : i + size]) for i in indices]
 
 
 def _load_file(filepath: str) -> str | None:
