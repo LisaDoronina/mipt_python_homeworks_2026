@@ -180,14 +180,14 @@ def split_chunks(text: str, mode: str, size: int) -> list[str]:
     if mode == 'len':
         chunks: list[str] = []
         for i in range(0, len(text), size):
-            chunks.append(text[i : i + size])
+            chunks.append(text[i: i + size])
         return chunks
 
     paragraphs = _get_paragraphs(text)
     sep = '\n\n'
     result: list[str] = []
     for i in range(0, len(paragraphs), size):
-        result.append(sep.join(paragraphs[i : i + size]))
+        result.append(sep.join(paragraphs[i: i + size]))
     return result
 
 
