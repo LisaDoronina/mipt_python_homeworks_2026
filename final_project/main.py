@@ -180,14 +180,14 @@ def split_chunks(text: str, mode: str, size: int) -> list[str]:
     if mode == 'len':
         chunks: list[str] = []
         for i in range(0, len(text), size):
-            chunks.append(text[i : i + size])
+            chunks.append(text[i:i + size])
         return chunks
 
     paragraphs = _get_paragraphs(text)
     sep = '\n\n'
     result: list[str] = []
     for i in range(0, len(paragraphs), size):
-        result.append(sep.join(paragraphs[i : i + size]))
+        result.append(sep.join(paragraphs[i:i + size]))
     return result
 
 
@@ -315,17 +315,24 @@ def _dispatch(
     return _handle_message(user_input, history, config), False
 
 
+def _process_step(
+    config: Config,
+    history: list[Message],
+) -> tuple[list[Message], bool]:
+    user_input = _read_input()
+    if user_input is None:
+        return history, True
+    stripped = user_input.strip()
+    if not stripped:
+        return history, False
+    history, should_quit = _dispatch(stripped, user_input, history, config)
+    return history, should_quit
+
+
 def process(config: Config, history: list[Message]) -> None:
-    while True:
-        user_input = _read_input()
-        if user_input is None:
-            break
-        stripped = user_input.strip()
-        if not stripped:
-            continue
-        history, should_quit = _dispatch(stripped, user_input, history, config)
-        if should_quit:
-            break
+    done = False
+    while not done:
+        history, done = _process_step(config, history)
 
 
 def main() -> None:
