@@ -41,7 +41,8 @@ def _clean(s: str) -> str:
 
 
 def _extract_delta(obj: Any) -> str:
-    delta = _clean(obj['choices'][0]['delta'].get('content') or '')
+    raw_delta = obj['choices'][0]['delta'].get('content')
+    delta = _clean(raw_delta or '')
     return delta
 
 
@@ -166,7 +167,7 @@ def build_messages(history: list[Message], system_prompt: str | None) -> list[Me
 def split_chunks(text: str, mode: str, size: int) -> list[str]:
     if mode == 'len':
         indices = range(0, len(text), size)
-        return [text[i : i + size] for i in indices]
+        return [text[i: i + size] for i in indices]
 
     paragraphs = [p.strip() for p in re.split(r'\n{2,}', text) if p.strip()]
     if not paragraphs:
@@ -177,7 +178,7 @@ def split_chunks(text: str, mode: str, size: int) -> list[str]:
 
     sep = '\n\n'
     indices = range(0, len(paragraphs), size)
-    return [sep.join(paragraphs[i : i + size]) for i in indices]
+    return [sep.join(paragraphs[i: i + size]) for i in indices]
 
 
 def _load_file(filepath: str) -> str | None:
@@ -249,7 +250,19 @@ def handle_file_chunk(command: str, config: Config) -> None:
     print('Обработка файла завершена.')
 
 
-def process(config, history) -> None:
+def check(
+    user_input: str,
+    history: list[Message],
+    config: Config,
+) -> tuple[str, list[Message], str | None]:
+    content = process_file_attachments(user_input)
+    history, content = trim_context(history, content, config.limit_message, config.limit_chars)
+    history.append(_UserMsg(role='user', content=content))
+    answer = call_api(config, build_messages(history, config.system_prompt))
+    return content, history, answer
+
+
+def process(config: Config, history: list[Message]) -> None:
     while True:
         try:
             user_input = input(_PROMPT)
@@ -271,10 +284,7 @@ def process(config, history) -> None:
             handle_file_chunk(stripped, config)
             continue
 
-        content = process_file_attachments(user_input)
-        history, content = trim_context(history, content, config.limit_message, config.limit_chars)
-        history.append(_UserMsg(role='user', content=content))
-        answer = call_api(config, build_messages(history, config.system_prompt))
+        content, history, answer = check(user_input, history, config)
         if answer is None:
             history.pop()
             continue
