@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from part4_oop.interfaces import Cache, HasCache, Policy, Storage
 
@@ -13,19 +13,19 @@ class DictStorage(Storage[K, V]):
     _data: dict[K, V] = field(default_factory=dict, init=False)
 
     def set(self, key: K, value: V) -> None:
-        raise NotImplementedError
+        self._data[key] = value
 
     def get(self, key: K) -> V | None:
-        raise NotImplementedError
+        return self._data.get(key, None)
 
     def exists(self, key: K) -> bool:
-        raise NotImplementedError
+        return key in self._data
 
     def remove(self, key: K) -> None:
-        raise NotImplementedError
+        self._data.pop(key, None)
 
     def clear(self) -> None:
-        raise NotImplementedError
+        self._data.clear()
 
 
 @dataclass
@@ -34,20 +34,25 @@ class FIFOPolicy(Policy[K]):
     _order: list[K] = field(default_factory=list, init=False)
 
     def register_access(self, key: K) -> None:
-        raise NotImplementedError
+        if key not in self._order:
+            self._order.append(key)
 
     def get_key_to_evict(self) -> K | None:
-        raise NotImplementedError
+        if len(self._order) <= self.capacity:
+            return None
+
+        return self._order[0]
 
     def remove_key(self, key: K) -> None:
-        raise NotImplementedError
+        if key in self._order:
+            self._order.remove(key)
 
     def clear(self) -> None:
-        raise NotImplementedError
+        self._order.clear()
 
     @property
     def has_keys(self) -> bool:
-        raise NotImplementedError
+        return len(self._order) > 0
 
 
 @dataclass
@@ -56,42 +61,75 @@ class LRUPolicy(Policy[K]):
     _order: list[K] = field(default_factory=list, init=False)
 
     def register_access(self, key: K) -> None:
-        raise NotImplementedError
+        if key in self._order:
+            self._order.remove(key)
+        self._order.append(key)
 
     def get_key_to_evict(self) -> K | None:
-        raise NotImplementedError
+        if len(self._order) <= self.capacity:
+            return None
+
+        return self._order[0]
 
     def remove_key(self, key: K) -> None:
-        raise NotImplementedError
+        if key in self._order:
+            self._order.remove(key)
 
     def clear(self) -> None:
-        raise NotImplementedError
+        self._order.clear()
 
     @property
     def has_keys(self) -> bool:
-        raise NotImplementedError
+        return len(self._order) > 0
 
 
 @dataclass
 class LFUPolicy(Policy[K]):
     capacity: int = 5
     _key_counter: dict[K, int] = field(default_factory=dict, init=False)
+    _key_order: dict[K, int] = field(default_factory=dict, init=False)
+    _order_counter: int = field(default=0, init=False)
 
     def register_access(self, key: K) -> None:
-        raise NotImplementedError
+        if key not in self._key_counter:
+            self._key_order[key] = self._order_counter
+            self._order_counter += 1
+        self._key_counter[key] = self._key_counter.get(key, 0) + 1
 
     def get_key_to_evict(self) -> K | None:
-        raise NotImplementedError
+        if len(self._key_counter) <= self.capacity:
+            return None
+
+        last_key = max(self._key_order, key=lambda k: self._key_order[k])
+        key_to_evict = None
+        best_freq = float("inf")
+        best_order = float("inf")
+
+        for key, freq in self._key_counter.items():
+            if key == last_key:
+                continue
+
+            order = self._key_order[key]
+
+            if freq < best_freq or (freq == best_freq and order < best_order):
+                key_to_evict = key
+                best_freq = freq
+                best_order = order
+
+        return key_to_evict
 
     def remove_key(self, key: K) -> None:
-        raise NotImplementedError
+        self._key_counter.pop(key, None)
+        self._key_order.pop(key, None)
 
     def clear(self) -> None:
-        raise NotImplementedError
+        self._key_counter.clear()
+        self._key_order.clear()
+        self._order_counter = 0
 
     @property
     def has_keys(self) -> bool:
-        raise NotImplementedError
+        return len(self._key_counter) > 0
 
 
 class MIPTCache(Cache[K, V]):
@@ -100,21 +138,52 @@ class MIPTCache(Cache[K, V]):
         self.policy = policy
 
     def set(self, key: K, value: V) -> None:
-        raise NotImplementedError
+        self.policy.register_access(key)
+        self.storage.set(key, value)
+        self._evict_if_needed()
 
     def get(self, key: K) -> V | None:
-        raise NotImplementedError
+        if not self.storage.exists(key):
+            return None
+        self.policy.register_access(key)
+        return self.storage.get(key)
 
     def exists(self, key: K) -> bool:
-        raise NotImplementedError
+        return self.storage.exists(key)
 
     def remove(self, key: K) -> None:
-        raise NotImplementedError
+        if self.storage.exists(key):
+            self.storage.remove(key)
+            self.policy.remove_key(key)
 
     def clear(self) -> None:
-        raise NotImplementedError
+        self.storage.clear()
+        self.policy.clear()
+
+    def _evict_if_needed(self) -> None:
+        key_to_evict = self.policy.get_key_to_evict()
+        if key_to_evict is not None:
+            self.storage.remove(key_to_evict)
+            self.policy.remove_key(key_to_evict)
 
 
 class CachedProperty[V]:
-    def __init__(self, func: Callable[..., V]) -> None: ...
-    def __get__(self, instance: HasCache[Any, Any] | None, owner: type) -> V: ...  # type: ignore[empty-body]
+    def __init__(self, func: Callable[..., V]) -> None:
+        self.func = func
+        self.name = func.__name__
+
+    def __get__(self, instance: HasCache[Any, Any] | None, owner: type) -> V:
+        if instance is None:
+            return cast("V", self)
+
+        cache = instance.cache
+        key = self.name
+
+        if cache.exists(key):
+            result = cache.get(key)
+            if result is not None:
+                return cast("V", result)
+
+        value = self.func(instance)
+        cache.set(key, value)
+        return value
